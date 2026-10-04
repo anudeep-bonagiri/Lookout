@@ -15,13 +15,20 @@ const display = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "Scam Shield",
+  title: "Lookout",
   description: "Pause a scam payment and ask someone you trust before the money moves.",
+  applicationName: "Lookout",
+  appleWebApp: {
+    capable: true,
+    title: "Lookout",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#1c140e",
 };
 

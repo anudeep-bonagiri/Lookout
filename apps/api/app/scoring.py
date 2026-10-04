@@ -61,11 +61,16 @@ def score_signals(
     signals: dict[str, bool],
     language: str = "en",
     reason_overrides: dict[str, str] | None = None,
+    weights: dict[str, int] | None = None,
 ) -> ScoreResult:
     overrides = reason_overrides or {}
-    fired = [key for key in POINTS if signals.get(key)]
-    fired.sort(key=lambda key: (-POINTS[key], key))
-    total = min(100, sum(POINTS[key] for key in fired))
+    table = dict(POINTS)
+    for key, value in (weights or {}).items():
+        if key in table:
+            table[key] = max(0, min(POINTS[key], int(value)))
+    fired = [key for key in table if signals.get(key)]
+    fired.sort(key=lambda key: (-table[key], key))
+    total = min(100, sum(table[key] for key in fired))
     reasons = [reason_for(key, language, overrides.get(key)) for key in fired]
     clean = {key: bool(signals.get(key)) for key in POINTS}
     return ScoreResult(

@@ -7,8 +7,9 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.reasons import reason_for
+from app.why import EMERGENCY_CUES
 
-log = logging.getLogger("scamshield")
+log = logging.getLogger("lookout")
 
 MESSAGE_SIGNALS = (
     "authority_claim",
@@ -31,6 +32,11 @@ AUTHORITY = (
     "soporte técnico",
     "soporte tecnico",
     "hacienda",
+    "fraud department",
+    "fraud prevention",
+    "bank fraud",
+    "amazon security",
+    "medicare",
 )
 THREAT = (
     "arrest",
@@ -62,9 +68,14 @@ URGENCY = (
 SECRECY = (
     "do not tell",
     "don't tell",
+    "dont tell",
     "keep this secret",
+    "keep it secret",
+    "keep it between us",
+    "between us",
     "tell no one",
     "no le diga",
+    "no le digas",
     "no le cuente",
     "que no se entere",
     "no se lo cuente",
@@ -78,9 +89,18 @@ SENSITIVE = (
     "anydesk",
     "verification code",
     "one-time code",
+    "wire transfer",
+    "wire the",
+    "send a wire",
+    "by wire",
+    "zelle",
+    "western union",
+    "moneygram",
+    "money gram",
     "tarjeta de regalo",
     "código de verificación",
     "codigo de verificacion",
+    "giro bancario",
 )
 
 
@@ -96,7 +116,7 @@ def label_heuristic(text: str, language: str) -> LabelResult:
     flags = {
         "authority_claim": _hit(haystack, AUTHORITY),
         "threat_or_reward": _hit(haystack, THREAT),
-        "urgency": _hit(haystack, URGENCY),
+        "urgency": _hit(haystack, URGENCY) or _hit(haystack, EMERGENCY_CUES),
         "secrecy": _hit(haystack, SECRECY),
         "sensitive_request": _hit(haystack, SENSITIVE),
     }
@@ -120,6 +140,89 @@ async def label_message(text: str, image: tuple[bytes, str] | None, language: st
     return LabelResult(signals={key: False for key in MESSAGE_SIGNALS}, reasons={}, source="none")
 
 
+SIGNAL_PHRASES = {
+    "authority_claim": "the caller claimed to be from the government, a bank, or tech support",
+    "threat_or_reward": "the caller threatened arrest or dangled a prize",
+    "urgency": "the caller rushed them to pay right away",
+    "secrecy": "the caller told them to keep it secret",
+    "sensitive_request": "the caller asked for gift cards, a wire, or a code",
+    "on_call": "they are still on the phone with that person",
+    "flagged_number": "the number has already been reported by other people",
+}
+
+
+async def generate_reply(transcript: str, detected: list[str], intent: str, language: str = "en") -> str | None:
+    """NLP-written spoken reply for the call bot, conditioned on what the caller
+    actually said and the verdict the rules engine already reached. Returns None
+    with no Gemini key or on any error, so the caller falls back to scripted lines.
+    """
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        return None
+    language_name = "Spanish" if language == "es" else "English"
+    heard = "; ".join(SIGNAL_PHRASES.get(key, key) for key in detected) or "nothing specific yet"
+    base = (
+        "You are Lookout, a warm, calm helper on a phone call with an older adult who is "
+        "worried someone is scamming them. Speak plainly, like a kind person on the phone. "
+        f"Reply in {language_name}. Rules you must follow: 2 to 3 short spoken sentences; "
+        "no markdown, lists, or emoji; never say a named individual is a criminal; "
+        "never ask for money, codes, card numbers, or personal information. "
+        f"\n\nWhat the caller told you: \"\"\"{transcript or '(nothing yet)'}\"\"\"\n"
+        f"Warning signs our check already found: {heard}.\n\n"
+    )
+    if intent.startswith("probe:"):
+        target = intent.split(":", 1)[1]
+        want = SIGNAL_PHRASES.get(target, target)
+        task = (
+            f"Ask ONE short, natural yes-or-no question to find out whether {want}. "
+            "Reference what they said if it feels natural. One sentence only."
+        )
+    elif intent == "verdict:scam":
+        task = (
+            "Our fraud check decided this is LIKELY A SCAM. Gently tell them to stop and not send "
+            "any money, name the specific warning sign(s) you heard in their words, and tell them to "
+            "hang up and call the company back using the number on the company's official website, not "
+            "the number they were given."
+        )
+    elif intent == "verdict:caution":
+        task = (
+            "Our check found some warning signs but is not certain. Tell them what gave you pause, say "
+            "to check with someone they trust before sending money, and to never pay an official bill "
+            "with gift cards or a wire."
+        )
+    else:
+        task = (
+            "Our check did not find the usual scam signs. Reassure them briefly, but remind them that if "
+            "anyone rushes them or tells them to keep a payment secret, that is their cue to stop and check."
+        )
+    prompt = base + task + "\n\nRespond with only the words to speak."
+
+    def call() -> str:
+        import re as _re
+
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        response = client.models.generate_content(
+            model=settings.gemini_model,
+            contents=[prompt],
+            config=types.GenerateContentConfig(temperature=0.4),
+        )
+        said = (getattr(response, "text", None) or "").strip()
+        said = _re.sub(r"[*_#`]+", "", said)  # strip stray markdown
+        return " ".join(said.split())
+
+    import asyncio
+
+    try:
+        said = await asyncio.to_thread(call)
+    except Exception:
+        log.exception("Voice reply generation failed. Using scripted lines.")
+        return None
+    return said or None
+
+
 async def _label_gemini(
     text: str,
     image: tuple[bytes, str] | None,
@@ -134,7 +237,9 @@ async def _label_gemini(
 
     language_name = "Spanish" if language == "es" else "English"
     prompt = (
-        "Read the message a person was given before sending money. "
+        "Read the message or the call words a person was given before sending money. "
+        "A plea that someone is at a doctor, hospital, jail, or accident and needs money now is urgency. "
+        "A request to hide it from family is secrecy. "
         "Label only these patterns. Do not give a score. "
         f"Write any reason in {language_name}, in one short plain sentence. "
         "Describe the pattern. Do not say a named person is a criminal. "

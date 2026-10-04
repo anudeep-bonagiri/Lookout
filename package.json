@@ -1,5 +1,5 @@
 {
-  "name": "scam-shield",
+  "name": "lookout",
   "private": true,
   "scripts": {
     "dev:api": "cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000",

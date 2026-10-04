@@ -45,11 +45,12 @@ export function CrewView({ token }: { token: string }) {
   }
 
   return (
-    <Frame tone={state?.pending ? "alarm" : "vault"} language={language}>
+    <Frame tone={state?.pending ? "alarm" : "vault"} language={language} player={state?.pending ? t.roles.alarm : t.roles.lookout}>
       <div className="langs" style={{ marginBottom: "0.8rem" }}>
         <button type="button" className={`choice ${language === "en" ? "on" : ""}`} onClick={() => setLanguage("en")}>{t.english}</button>
         <button type="button" className={`choice ${language === "es" ? "on" : ""}`} onClick={() => setLanguage("es")}>{t.spanish}</button>
       </div>
+      <div className="step-view" key={state?.pending?.approval_id || "idle"}>
       {state?.pending ? (
         <section className="stack">
           <h1>{t.heistTitle}</h1>
@@ -76,6 +77,7 @@ export function CrewView({ token }: { token: string }) {
           <p>{state ? t.noAlarmBody(state.user_name) : t.checking}</p>
         </section>
       )}
+      </div>
       {error ? <p className="error">{error}</p> : null}
       <Link className="btn ghost" href={`/crew/${token}/history`}>{t.history}</Link>
       <HelpLinks language={language} />

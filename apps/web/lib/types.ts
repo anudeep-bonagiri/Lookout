@@ -14,6 +14,37 @@ export type Session = {
   home_id: string;
 };
 
+export type WhyLevel = "high" | "mid" | "low";
+
+export type WhyRank = {
+  id: string;
+  label: string;
+  rank: number;
+  of: number;
+  level: WhyLevel;
+  q: number;
+  points: number;
+  successes: number;
+  disputes: number;
+};
+
+export type Looked = {
+  id: string;
+  name: string;
+  sentence: string;
+  signal: string;
+  heat: number;
+};
+
+export type WatcherDesk = {
+  id: string;
+  name: string;
+  signal: string;
+  phrases: string[];
+  sentence: string;
+  builtin: boolean;
+};
+
 export type CheckResult = {
   attempt_id: string;
   amount: number;
@@ -30,6 +61,11 @@ export type CheckResult = {
   approval_status: string | null;
   warning: string;
   created_at: string;
+  why?: WhyRank | null;
+  suggested_why?: WhyRank | null;
+  review_note?: string;
+  saved_payment?: boolean;
+  looked?: Looked[];
 };
 
 export type PendingApproval = {

@@ -1,4 +1,4 @@
-import type { ChartState, CheckResult, CrewState, HistoryItem, Lang, Session, VitalsState } from "./types";
+import type { ChartState, CheckResult, CrewState, HistoryItem, Lang, Session, VitalsState, WatcherDesk, WhyRank } from "./types";
 
 async function send<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
@@ -14,6 +14,13 @@ async function send<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getRosa() {
   return send<Session>("/api/demo/rosa");
+}
+
+export function callMe(to: string) {
+  return send<{ ok: boolean; reason?: string; detail?: string; sid?: string; to?: string }>("/api/voice/call", {
+    method: "POST",
+    body: JSON.stringify({ to }),
+  });
 }
 
 export function setup(body: {
@@ -37,6 +44,10 @@ export function getIrs(language: Lang) {
   return send<{ text: string }>(`/api/samples/irs?language=${language}`);
 }
 
+export function getReasons(language: Lang) {
+  return send<{ reasons: WhyRank[] }>(`/api/reasons?language=${language}`);
+}
+
 export function checkPayment(body: {
   user_id: string;
   amount: number;
@@ -46,15 +57,24 @@ export function checkPayment(body: {
   image_base64?: string;
   on_call?: boolean;
   pressure_elevated?: boolean;
+  why?: string;
 }) {
   return send<CheckResult>("/api/check", { method: "POST", body: JSON.stringify(body) });
 }
 
 export function checkMessage(body: { user_id: string; prompt_text: string; image_base64?: string }) {
-  return send<Pick<CheckResult, "score" | "outcome" | "stage" | "reasons" | "label_source">>("/api/message-check", {
+  return send<CheckResult>("/api/message-check", {
     method: "POST",
     body: JSON.stringify(body),
   });
+}
+
+export function getWatchers(language: Lang) {
+  return send<{ watchers: WatcherDesk[] }>(`/api/watchers?language=${language}`);
+}
+
+export function addWatcher(body: { name: string; phrases: string[]; signal: string; sentence: string; language: Lang }) {
+  return send<WatcherDesk>("/api/watchers", { method: "POST", body: JSON.stringify(body) });
 }
 
 export function friction(attemptId: string, userId: string, onCall: boolean, secret: boolean) {
@@ -139,4 +159,4 @@ export function telHref(phone: string) {
   return digits.startsWith("1") ? `tel:+${digits}` : `tel:+${digits}`;
 }
 
-export const STORAGE_KEY = "scam-shield-session";
+export const STORAGE_KEY = "lookout-session";

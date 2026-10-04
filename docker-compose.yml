@@ -1,13 +1,13 @@
-name: scam-shield
+name: lookout
 
 services:
   api:
     build: ./apps/api
     env_file: .env
     environment:
-      DATABASE_URL: ${TIGER_DATABASE_URL:-sqlite+aiosqlite:////data/scamshield.db}
+      DATABASE_URL: ${TIGER_DATABASE_URL:-sqlite+aiosqlite:////data/lookout.db}
     volumes:
-      - shield-data:/data
+      - lookout-data:/data
     expose:
       - "8000"
   web:
@@ -33,6 +33,6 @@ services:
       - web
 
 volumes:
-  shield-data:
+  lookout-data:
   caddy-data:
   caddy-config:

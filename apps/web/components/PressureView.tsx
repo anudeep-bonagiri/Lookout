@@ -37,7 +37,7 @@ export function PressureView() {
   const note = vitals?.pressure_elevated ? t.pressureHigh : vitals?.baseline_ready ? t.pressureReady : t.pressureWaiting;
 
   return (
-    <Frame tone="vault" language={language}>
+    <Frame tone="vault" language={language} player={t.roles.pulse}>
       <section className="paper stack">
         <h1>{t.pressureTitle}</h1>
         <p>{t.pressureBody}</p>
@@ -46,7 +46,7 @@ export function PressureView() {
         <p>{note}</p>
         {vitals?.pulse ? <p>{Math.round(vitals.pulse)} bpm · {vitals.breathing?.toFixed(1)} breaths</p> : null}
         {camera ? <p className="error">{camera}</p> : null}
-        <Link className="btn ink" href="/">{t.back}</Link>
+        <Link className="btn ink" href="/wallet">{t.back}</Link>
       </section>
     </Frame>
   );

@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -11,6 +11,7 @@ from app.db import configure, init_db, session_factory
 from app.labels import load_sample
 from app.speech import synthesize
 import app.service as service
+import app.voice as voice
 
 
 class SetupIn(BaseModel):
@@ -34,6 +35,15 @@ class CheckIn(BaseModel):
     image_base64: str | None = None
     on_call: bool = False
     pressure_elevated: bool = False
+    why: str | None = Field(default=None, max_length=40)
+
+
+class WatcherIn(BaseModel):
+    name: str = Field(min_length=2, max_length=60)
+    phrases: list[str] = Field(min_length=1, max_length=12)
+    signal: str
+    sentence: str = Field(default="", max_length=200)
+    language: str = "en"
 
 
 class MessageIn(BaseModel):
@@ -72,6 +82,16 @@ class VitalsIn(BaseModel):
     breathing: float = Field(gt=2, lt=60)
 
 
+class ReportNumberIn(BaseModel):
+    number: str = Field(min_length=3, max_length=40)
+    source: str = "community"
+    reason: str = Field(default="", max_length=200)
+
+
+class CallMeIn(BaseModel):
+    to: str = Field(min_length=7, max_length=40)
+
+
 def create_app(database_url: str | None = None) -> FastAPI:
     settings = get_settings()
     configure(database_url or settings.database_url)
@@ -84,7 +104,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             await service.seed(session)
         yield
 
-    app = FastAPI(title="Scam Shield", lifespan=lifespan)
+    app = FastAPI(title="Lookout", lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -141,6 +161,24 @@ def create_app(database_url: str | None = None) -> FastAPI:
         except LookupError as exc:
             raise fail(exc) from exc
 
+    @app.get("/reasons")
+    async def reasons(language: str = "en", session: AsyncSession = Depends(db)):
+        lang = "es" if language == "es" else "en"
+        return await service.list_reasons(session, lang)
+
+    @app.get("/watchers")
+    async def watchers(language: str = "en", session: AsyncSession = Depends(db)):
+        lang = "es" if language == "es" else "en"
+        return await service.list_watchers(session, lang)
+
+    @app.post("/watchers")
+    async def add_watcher(body: WatcherIn, session: AsyncSession = Depends(db)):
+        lang = "es" if body.language == "es" else "en"
+        try:
+            return await service.add_watcher(session, body.name, body.phrases, body.signal, body.sentence, lang)
+        except ValueError as exc:
+            raise fail(exc) from exc
+
     @app.post("/check")
     async def check(body: CheckIn, session: AsyncSession = Depends(db)):
         _method(body.method)
@@ -155,6 +193,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 body.image_base64,
                 body.on_call,
                 body.pressure_elevated,
+                body.why,
             )
         except (LookupError, ValueError, PermissionError) as exc:
             raise fail(exc) from exc
@@ -268,6 +307,40 @@ def create_app(database_url: str | None = None) -> FastAPI:
     @app.get("/alarms/active")
     async def alarms(home_id: str, session: AsyncSession = Depends(db)):
         return await service.alarm_active(session, home_id)
+
+    @app.post("/voice/incoming")
+    async def voice_incoming():
+        return Response(content=voice.incoming_twiml(), media_type="application/xml")
+
+    @app.post("/voice/turn")
+    async def voice_turn(request: Request, step: int = 1, session: AsyncSession = Depends(db)):
+        form = await request.form()
+        call_sid = str(form.get("CallSid") or "demo")
+        speech = str(form.get("SpeechResult") or "")
+        from_number = str(form.get("From") or "")
+        xml = await voice.turn_twiml(session, call_sid, speech, step, from_number)
+        return Response(content=xml, media_type="application/xml")
+
+    @app.get("/voice/audio")
+    async def voice_audio(t: str):
+        data = await voice.audio_for(t)
+        if data is None:
+            raise HTTPException(status_code=404, detail="No audio for that line.")
+        return Response(content=data, media_type="audio/mpeg")
+
+    @app.get("/numbers/{number}")
+    async def number_lookup(number: str, session: AsyncSession = Depends(db)):
+        return await service.lookup_number(session, number)
+
+    @app.post("/numbers/report")
+    async def number_report(body: ReportNumberIn, session: AsyncSession = Depends(db)):
+        return await service.report_number(session, body.number, body.source, body.reason)
+
+    @app.post("/voice/call")
+    async def voice_call(body: CallMeIn, request: Request):
+        import app.calls as calls
+
+        return await calls.place_call(body.to, str(request.base_url))
 
     return app
 

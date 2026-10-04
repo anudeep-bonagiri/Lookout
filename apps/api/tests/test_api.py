@@ -194,3 +194,112 @@ async def test_chart_and_alarm(client: AsyncClient):
     assert held.json()["outcome"] == "hold"
     alarm = await client.get("/alarms/active", params={"home_id": "rosa"})
     assert alarm.json()["active"] is True
+
+
+@pytest.mark.asyncio
+async def test_stated_reason_learns_from_success_and_denial(client: AsyncClient):
+    ranked = await client.get("/reasons", params={"language": "en"})
+    assert ranked.status_code == 200
+    before = {item["id"]: item for item in ranked.json()["reasons"]}
+    assert before["threat"]["rank"] < before["bill"]["rank"]
+    assert before["bill"]["points"] == 0
+    assert before["threat"]["points"] < 40
+
+    held = await client.post(
+        "/check",
+        json={
+            "user_id": ROSA_ID,
+            "amount": 2000,
+            "recipient": "IRS Collections",
+            "method": "instant",
+            "prompt_text": IRS,
+            "why": "threat",
+        },
+    )
+    assert held.status_code == 200, held.text
+    assert held.json()["outcome"] == "hold"
+    denied = await client.post(
+        f"/approvals/{held.json()['approval_id']}/decide",
+        json={"token": "maya-demo", "decision": "denied"},
+    )
+    assert denied.status_code == 200
+
+    after = await client.get("/reasons", params={"language": "en"})
+    learned = {item["id"]: item for item in after.json()["reasons"]}
+    assert learned["threat"]["disputes"] == 1
+    assert learned["threat"]["q"] > before["threat"]["q"]
+
+    threat = await client.post(
+        "/check",
+        json={
+            "user_id": ROSA_ID,
+            "amount": 140,
+            "recipient": "CPS Energy",
+            "method": "ach",
+            "prompt_text": "",
+            "why": "threat",
+        },
+    )
+    assert threat.status_code == 200, threat.text
+    assert threat.json()["outcome"] == "allow"
+    assert threat.json()["score"] < 40
+    assert threat.json()["stage"] == 2
+
+    bill = await client.post(
+        "/check",
+        json={
+            "user_id": ROSA_ID,
+            "amount": 140,
+            "recipient": "CPS Energy",
+            "method": "ach",
+            "prompt_text": "Monthly electric bill.",
+            "why": "bill",
+        },
+    )
+    assert bill.status_code == 200, bill.text
+    assert bill.json()["outcome"] == "allow"
+    assert bill.json()["score"] < 40
+    assert bill.json()["why"]["successes"] == 1
+
+
+@pytest.mark.asyncio
+async def test_doctor_call_is_reviewed_without_joining_the_line(client: AsyncClient):
+    response = await client.post(
+        "/message-check",
+        json={
+            "user_id": ROSA_ID,
+            "prompt_text": "I'm at the doctor. Send the money now. Don't tell Mom.",
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["saved_payment"] is False
+    assert body["outcome"] != "hold"
+    assert body["score"] < 70
+    assert body["suggested_why"]["id"] == "emergency"
+    assert body["suggested_why"]["points"] < 40
+    assert "did not join the call" in body["review_note"]
+    assert any(item["id"] == "emergency-desk" for item in body["looked"])
+
+    added = await client.post(
+        "/watchers",
+        json={
+            "name": "Booth desk",
+            "phrases": ["purple ostrich"],
+            "signal": "secrecy",
+            "sentence": "Those words were added at the table.",
+        },
+    )
+    assert added.status_code == 200, added.text
+    custom = await client.post(
+        "/message-check",
+        json={"user_id": ROSA_ID, "prompt_text": "Please pay the purple ostrich today."},
+    )
+    assert custom.status_code == 200, custom.text
+    custom_body = custom.json()
+    assert custom_body["outcome"] == "allow"
+    assert custom_body["score"] < 40
+    assert custom_body["signals"]["secrecy"] is True
+    assert any(item["name"] == "Booth desk" for item in custom_body["looked"])
+    history = await client.get("/history", params={"token": "maya-demo"})
+    assert all(item["recipient"] != "doctor" for item in history.json()["items"])

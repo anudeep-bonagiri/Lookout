@@ -24,7 +24,7 @@ export function HistoryView({ token }: { token: string }) {
   }, [token]);
 
   return (
-    <Frame tone="vault" language={language}>
+    <Frame tone="vault" language={language} player={t.roles.ledger}>
       <section className="paper stack">
         <h1>{t.history}</h1>
         <p>{name}</p>

@@ -82,6 +82,35 @@ class ApprovalRequest(Base):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ReasonBelief(Base):
+    __tablename__ = "reason_beliefs"
+
+    reason_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    successes: Mapped[int] = mapped_column(Integer, default=0)
+    disputes: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ReasonObservation(Base):
+    __tablename__ = "reason_observations"
+
+    attempt_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    reason_id: Mapped[str] = mapped_column(String(40))
+    target: Mapped[int] = mapped_column(Integer)
+
+
+class Watcher(Base):
+    __tablename__ = "watchers"
+
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    name_en: Mapped[str] = mapped_column(String(80))
+    name_es: Mapped[str] = mapped_column(String(80))
+    signal: Mapped[str] = mapped_column(String(40))
+    phrases: Mapped[str] = mapped_column(Text, default="[]")
+    sentence_en: Mapped[str] = mapped_column(Text, default="")
+    sentence_es: Mapped[str] = mapped_column(Text, default="")
+    builtin: Mapped[int] = mapped_column(Integer, default=0)
+
+
 class VitalsSample(Base):
     __tablename__ = "vitals_samples"
 
@@ -90,6 +119,21 @@ class VitalsSample(Base):
     user_id: Mapped[str] = mapped_column(String(36), index=True)
     pulse: Mapped[float] = mapped_column(Float)
     breathing: Mapped[float] = mapped_column(Float)
+
+
+class FlaggedNumber(Base):
+    """A phone number reported as a scam. Shared across every wallet, carrier,
+    and credit union that reports into the same list."""
+
+    __tablename__ = "flagged_numbers"
+
+    number: Mapped[str] = mapped_column(String(32), primary_key=True)
+    reports: Mapped[int] = mapped_column(Integer, default=1)
+    source: Mapped[str] = mapped_column(String(32), default="community")
+    reason_en: Mapped[str] = mapped_column(Text, default="")
+    reason_es: Mapped[str] = mapped_column(Text, default="")
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 def configure(url: str) -> None:

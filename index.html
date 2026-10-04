@@ -3,17 +3,315 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>shinyhunters</title>
+  <title>Lookout — the crew</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Fraunces:opsz,wght@9..144,620;9..144,700&display=swap" rel="stylesheet">
   <style>
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #0d1117; color: #e6edf3; }
-    h1 { font-size: 3rem; margin: 0; }
-    p { color: #8b949e; }
+    :root {
+      --ink: #1c140e;
+      --brass: #e2b45c;
+      --paper: #f4efe4;
+      --alarm: #9c2f2f;
+      --line: rgba(226, 180, 92, 0.45);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--paper);
+      background: var(--ink);
+      font-family: "Atkinson Hyperlegible", sans-serif;
+      line-height: 1.45;
+    }
+    .reel { height: 920vh; position: relative; }
+    .sticky {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: #100c09;
+    }
+    video, .poster {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .shade {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(to top, rgba(16, 12, 9, 0.94) 0%, rgba(16, 12, 9, 0.35) 38%, rgba(16, 12, 9, 0.15) 100%);
+      pointer-events: none;
+    }
+    .cap {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 1.2rem 1.3rem 2.4rem;
+      max-width: 760px;
+    }
+    .kicker {
+      margin: 0;
+      color: var(--brass);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .cap h1, .cap h2 {
+      margin: 0.2rem 0 0.35rem;
+      font-family: Fraunces, serif;
+      font-weight: 620;
+      letter-spacing: -0.04em;
+      line-height: 0.95;
+    }
+    .cap h1 { font-size: clamp(2.8rem, 7vw, 5rem); }
+    .cap h2 { font-size: clamp(2.2rem, 5.5vw, 4rem); }
+    .cap p { margin: 0.2rem 0 0; font-size: 1.12rem; max-width: 36rem; }
+    .rail {
+      position: absolute;
+      top: 1.1rem;
+      right: 1.1rem;
+      display: flex;
+      gap: 0.35rem;
+    }
+    .rail span {
+      width: 1.35rem;
+      height: 0.28rem;
+      border-radius: 99px;
+      background: rgba(244, 239, 228, 0.28);
+    }
+    .rail span.on { background: var(--brass); }
+    .hint {
+      position: absolute;
+      top: 1rem;
+      left: 1.3rem;
+      margin: 0;
+      color: var(--brass);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    main { max-width: 980px; margin: 0 auto; padding: 2.6rem 1.2rem 4rem; }
+    h2.section {
+      margin: 2.2rem 0 0.8rem;
+      font-family: Fraunces, serif;
+      font-size: 1.8rem;
+      letter-spacing: -0.03em;
+    }
+    .lede { max-width: 38rem; font-size: 1.15rem; }
+    .cast { display: grid; gap: 0.75rem; }
+    @media (min-width: 720px) { .cast { grid-template-columns: 1fr 1fr; } }
+    article {
+      margin: 0;
+      display: grid;
+      grid-template-columns: 118px 1fr;
+      gap: 0.85rem;
+      padding: 0.7rem;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(244, 239, 228, 0.04);
+    }
+    article img {
+      width: 118px;
+      height: 78px;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    article strong {
+      display: block;
+      font-family: Fraunces, serif;
+      font-size: 1.35rem;
+      letter-spacing: -0.03em;
+    }
+    article em { color: var(--brass); font-style: normal; font-weight: 700; font-size: 0.92rem; }
+    article p { margin: 0.3rem 0 0; }
+    .job { border-color: rgba(156, 47, 47, 0.7); }
+    footer { margin-top: 2.4rem; color: #c9bba6; font-size: 0.95rem; }
+    @media (prefers-reduced-motion: reduce) {
+      .reel { height: auto; }
+      .sticky { position: relative; height: 86vh; }
+      .hint { display: none; }
+    }
   </style>
 </head>
 <body>
-  <main style="text-align: center">
-    <h1>shinyhunters</h1>
-    <p>Coming soon.</p>
+  <section class="reel" id="reel">
+    <div class="sticky">
+      <img class="poster" id="poster" src="heist/vault.jpg" alt="">
+      <video id="film" muted playsinline preload="auto" poster="heist/vault.jpg" src="heist/reel.mp4"></video>
+      <div class="shade"></div>
+      <p class="hint" id="hint">Scroll the job</p>
+      <div class="rail" id="rail"></div>
+      <div class="cap" id="cap"></div>
+    </div>
+  </section>
+  <main>
+    <p class="kicker">The whole crew</p>
+    <p class="lede">Ten faces. Six keep the vault. Four run the job. Scroll the film above, then read who holds which role.</p>
+    <h2 class="section">Your crew</h2>
+    <div class="cast">
+      <article>
+        <img src="heist/keeper.jpg" alt="Rosa in a wool coat, holding a brass key in front of a vault door">
+        <div>
+          <strong>The Keeper</strong>
+          <em>El Guardián · Rosa</em>
+          <p>Holds the wallet. Sends the payment. Can cancel a hold. Cannot release one alone.</p>
+        </div>
+      </article>
+      <article>
+        <img src="heist/lookout.jpg" alt="Maya on a fire escape at night, holding a brass radio">
+        <div>
+          <strong>The Lookout</strong>
+          <em>El Vigía · Maya</em>
+          <p>The second phone. Approves or denies a held payment, or calls the Keeper.</p>
+        </div>
+      </article>
+      <article>
+        <img src="heist/alarm.jpg" alt="A brass alarm bell glowing red in front of a locked vault">
+        <div>
+          <strong>The Alarm</strong>
+          <em>La Alarma</em>
+          <p>Speaks the hold in English or Spanish and names which face is in the room.</p>
+        </div>
+      </article>
+      <article>
+        <img src="heist/vault.jpg" alt="A round brass vault door in a dark wood room">
+        <div>
+          <strong>The Dial</strong>
+          <em>El Cerrojo</em>
+          <p>Turns while a payment is checked. Heat is the score, from 0 to 100.</p>
+        </div>
+      </article>
+      <article>
+        <img src="heist/ledger.jpg" alt="An open blank ledger chained on a desk beside a vault door">
+        <div>
+          <strong>The Ledger</strong>
+          <em>El Libro</em>
+          <p>Keeps past attempts and the hourly chart for the Lookout.</p>
+        </div>
+      </article>
+      <article>
+        <img src="heist/pulse.jpg" alt="A floating brass ring with a cream pulse of light">
+        <div>
+          <strong>The Pulse</strong>
+          <em>El Pulso</em>
+          <p>Optional camera signal. Adds 10 heat only after a 15 second baseline.</p>
+        </div>
+      </article>
+    </div>
+    <h2 class="section">The job</h2>
+    <p>These four are patterns in a message. The film shows the mask, and the line under it stays plain.</p>
+    <div class="cast">
+      <article class="job">
+        <img src="heist/caser.jpg" alt="A masked figure with binoculars watching a lit window">
+        <div>
+          <strong>The Caser</strong>
+          <em>El Observador · stage 1</em>
+          <p>Someone you do not know is claiming to be an official.</p>
+        </div>
+      </article>
+      <article class="job">
+        <img src="heist/talker.jpg" alt="A figure in a blank brass mask with both hands open">
+        <div>
+          <strong>The Talker</strong>
+          <em>El Cuentista · stage 2</em>
+          <p>Real agencies do not threaten arrest by text or phone.</p>
+        </div>
+      </article>
+      <article class="job">
+        <img src="heist/clock.jpg" alt="A running figure whose head is a blank brass clock">
+        <div>
+          <strong>The Clock</strong>
+          <em>El Reloj · stage 3</em>
+          <p>You are being rushed and told to keep it secret.</p>
+        </div>
+      </article>
+      <article class="job">
+        <img src="heist/wheelman.jpg" alt="A driver seen from behind, hands on a brass steering wheel">
+        <div>
+          <strong>The Wheelman</strong>
+          <em>El Conductor · stage 4</em>
+          <p>This payment cannot be undone. Check with someone you trust first.</p>
+        </div>
+      </article>
+    </div>
+    <footer>Practice wallet. The app never moves money by itself.</footer>
   </main>
+  <script>
+    const beats = [
+      { title: true, kicker: "A practice heist", who: "Lookout", line: "The Dial is the vault door. Scroll, and the crew takes the job." },
+      { kicker: "Your crew", who: "The Keeper", line: "Rosa holds the wallet. She can cancel a hold. She cannot release one alone." },
+      { kicker: "Your crew", who: "The Lookout", line: "Maya keeps the second phone. She approves, denies, or calls the Keeper." },
+      { kicker: "Stage 1", who: "The Caser", line: "Someone you do not know is claiming to be an official." },
+      { kicker: "Stage 2", who: "The Talker", line: "Real agencies do not threaten arrest by text or phone." },
+      { kicker: "Stage 3", who: "The Clock", line: "You are being rushed and told to keep it secret." },
+      { kicker: "Stage 4", who: "The Wheelman", line: "This payment cannot be undone. Check with someone you trust first." },
+      { kicker: "The hold", who: "The Alarm", line: "The bell rings. The payment stays in the vault until the Lookout answers." },
+      { kicker: "After", who: "The Ledger", line: "Every attempt is written down, hour by hour, for the Lookout." },
+      { kicker: "Optional", who: "The Pulse", line: "A real camera reading can add 10 heat, and only after a 15 second baseline." }
+    ];
+    const posters = ["vault", "keeper", "lookout", "caser", "talker", "clock", "wheelman", "alarm", "ledger", "pulse"];
+    const film = document.getElementById("film");
+    const poster = document.getElementById("poster");
+    const cap = document.getElementById("cap");
+    const rail = document.getElementById("rail");
+    const hint = document.getElementById("hint");
+    const reel = document.getElementById("reel");
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let shown = -1;
+    let primed = false;
+
+    beats.forEach((_, index) => {
+      const mark = document.createElement("span");
+      mark.id = "tick-" + index;
+      rail.appendChild(mark);
+    });
+
+    function paint(index) {
+      if (index === shown) return;
+      shown = index;
+      const beat = beats[index];
+      const tag = beat.title ? "h1" : "h2";
+      cap.innerHTML = "<p class='kicker'>" + beat.kicker + "</p><" + tag + ">" + beat.who + "</" + tag + "><p>" + beat.line + "</p>";
+      poster.src = "heist/" + posters[index] + ".jpg";
+      beats.forEach((_, i) => {
+        document.getElementById("tick-" + i).className = i === index ? "on" : "";
+      });
+    }
+
+    function progress() {
+      const total = reel.offsetHeight - window.innerHeight;
+      if (total <= 0) return 0;
+      return Math.min(1, Math.max(0, -reel.getBoundingClientRect().top / total));
+    }
+
+    function tick() {
+      const p = progress();
+      const index = Math.min(beats.length - 1, Math.floor(p * beats.length));
+      paint(index);
+      if (p > 0.02) hint.style.opacity = "0";
+      if (!reduce && film.duration && isFinite(film.duration)) {
+        const canSeek = film.seekable.length > 0 && film.seekable.end(0) > 1;
+        film.style.opacity = canSeek ? "1" : "0";
+        if (!canSeek) return;
+        const want = Math.min(film.duration - 0.05, p * film.duration);
+        if (!primed) {
+          primed = true;
+          film.play().then(() => film.pause()).catch(() => undefined);
+        }
+        if (Math.abs(film.currentTime - want) > 0.08) film.currentTime = want;
+      }
+      requestAnimationFrame(tick);
+    }
+
+    film.addEventListener("loadeddata", () => { film.pause(); });
+    paint(0);
+    if (!reduce) requestAnimationFrame(tick);
+  </script>
 </body>
 </html>

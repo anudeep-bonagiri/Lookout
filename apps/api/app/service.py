@@ -8,19 +8,28 @@ from app.config import get_settings
 from app.db import (
     ApprovalRequest,
     Contact,
+    FlaggedNumber,
     PaymentAttempt,
+    ReasonBelief,
+    ReasonObservation,
     RiskCheck,
     User,
     VitalsSample,
+    Watcher,
     as_utc,
     dumps,
     loads,
     utcnow,
 )
-from app.labels import LabelResult, decode_image, label_message, normalize_recipient
+import app.reputation as reputation
+from app.labels import MESSAGE_SIGNALS, decode_image, label_message, normalize_recipient
 from app.pressure import pressure_status
 from app.reasons import ACTION, METHOD_LABELS, POINTS, UNKNOWN, warning_for
 from app.scoring import score_signals, user_may_continue, wallet_signals
+from app.watchers import DESKS, apply_watchers, ledger_line, load_desks, reader_line, reason_line
+from app.why import apply as apply_why
+from app.why import known as known_why
+from app.why import rank as rank_reasons, reason_sentence, review_note, suggest
 
 ROSA_ID = "11111111-1111-4111-8111-111111111111"
 MAYA_ID = "22222222-2222-4222-8222-222222222222"
@@ -29,7 +38,16 @@ MAYA_TOKEN = "maya-demo"
 HISTORY_STATUSES = ("allowed", "approved", "seed")
 
 
+SEED_FLAGGED = [
+    ("202-555-0147", 38, "community", "Caller claims to be the IRS and demands gift cards.", "Dice ser del IRS y exige tarjetas de regalo."),
+    ("800-555-0111", 12, "credit_union", "Flagged by a credit union for a fake fraud-department call.", "Marcado por una cooperativa de crédito por una llamada falsa de 'fraude'."),
+    ("210-555-0182", 6, "community", "Grandparent emergency scam, asks for a wire.", "Estafa de abuelos, pide un giro."),
+]
+
+
 async def seed(session: AsyncSession) -> None:
+    await ensure_watchers(session)
+    await ensure_flagged(session)
     existing = await session.get(Contact, MAYA_ID)
     if existing:
         return
@@ -92,6 +110,119 @@ async def seed(session: AsyncSession) -> None:
     await session.commit()
 
 
+async def ensure_flagged(session: AsyncSession) -> None:
+    now = utcnow()
+    for raw, reports, source, en, es in SEED_FLAGGED:
+        number = reputation.normalize(raw)
+        if not number or await session.get(FlaggedNumber, number) is not None:
+            continue
+        session.add(
+            FlaggedNumber(
+                number=number, reports=reports, source=source,
+                reason_en=en, reason_es=es, first_seen=now, last_seen=now,
+            )
+        )
+    await session.commit()
+
+
+async def report_number(session: AsyncSession, number: str, source: str = "community", reason: str = "") -> dict:
+    return await reputation.report(session, number, source=source or "community", reason_en=reason, reason_es=reason)
+
+
+async def lookup_number(session: AsyncSession, number: str) -> dict:
+    rep = await reputation.lookup(session, number)
+    rep["enrichment"] = await reputation.enrich(number)
+    return rep
+
+
+async def ensure_watchers(session: AsyncSession) -> None:
+    load_desks()
+    for spec in DESKS:
+        if await session.get(Watcher, spec["id"]) is not None:
+            continue
+        session.add(
+            Watcher(
+                id=spec["id"],
+                name_en=spec["name_en"],
+                name_es=spec["name_es"],
+                signal=spec["signal"],
+                phrases=dumps(list(spec["phrases"])),
+                sentence_en=spec["sentence_en"],
+                sentence_es=spec["sentence_es"],
+                builtin=1,
+            )
+        )
+    await session.commit()
+
+
+async def list_watchers(session: AsyncSession, language: str) -> dict:
+    rows = (await session.scalars(select(Watcher).order_by(Watcher.builtin.desc(), Watcher.name_en))).all()
+    return {"watchers": [_watcher_public(row, language) for row in rows]}
+
+
+async def add_watcher(session: AsyncSession, name: str, phrases: list[str], signal: str, sentence: str, language: str) -> dict:
+    if signal not in MESSAGE_SIGNALS:
+        raise ValueError("Choose a pattern the alarm already knows.")
+    clean = []
+    for phrase in phrases:
+        item = phrase.strip().lower()
+        if len(item) >= 3:
+            clean.append(item[:80])
+    if not clean or len(clean) > 12:
+        raise ValueError("Add between 1 and 12 phrases, each at least 3 letters.")
+    title = name.strip()[:60]
+    if len(title) < 2:
+        raise ValueError("Name the watcher.")
+    note = sentence.strip()[:200] or title
+    row = Watcher(
+        id=uuid.uuid4().hex[:12],
+        name_en=title,
+        name_es=title,
+        signal=signal,
+        phrases=dumps(clean),
+        sentence_en=note,
+        sentence_es=note,
+        builtin=0,
+    )
+    session.add(row)
+    await session.commit()
+    return _watcher_public(row, language)
+
+
+def _watcher_public(row: Watcher, language: str) -> dict:
+    spanish = language == "es"
+    phrases = loads(row.phrases, [])
+    return {
+        "id": row.id,
+        "name": row.name_es if spanish else row.name_en,
+        "signal": row.signal,
+        "phrases": phrases if isinstance(phrases, list) else [],
+        "sentence": row.sentence_es if spanish else row.sentence_en,
+        "builtin": bool(row.builtin),
+    }
+
+
+async def _watch(session: AsyncSession, text: str, signals: dict, language: str) -> tuple[dict, list[dict], dict[str, str]]:
+    rows = (await session.scalars(select(Watcher))).all()
+    watchers = []
+    for row in rows:
+        phrases = loads(row.phrases, [])
+        watchers.append(
+            {
+                "id": row.id,
+                "name_en": row.name_en,
+                "name_es": row.name_es,
+                "signal": row.signal,
+                "phrases": phrases if isinstance(phrases, list) else [],
+                "sentence_en": row.sentence_en,
+                "sentence_es": row.sentence_es,
+            }
+        )
+    signals, hits = apply_watchers(text, signals, watchers, language)
+    overrides = {hit["signal"]: hit["sentence"] for hit in hits if hit["heat"] > 0}
+    return signals, hits, overrides
+
+
 async def setup_pair(
     session: AsyncSession,
     user_name: str,
@@ -150,6 +281,10 @@ async def set_language(session: AsyncSession, user_id: str, language: str) -> di
     return _session_payload(user, contact)
 
 
+async def list_reasons(session: AsyncSession, language: str) -> dict:
+    return {"reasons": await _ranked(session, language)}
+
+
 async def check_payment(
     session: AsyncSession,
     user_id: str,
@@ -160,6 +295,7 @@ async def check_payment(
     image_base64: str | None,
     on_call: bool,
     pressure_elevated: bool,
+    why: str | None = None,
 ) -> dict:
     user = await _user(session, user_id)
     from app.redact import redact
@@ -174,7 +310,37 @@ async def check_payment(
         signals["on_call"] = True
     if pressure_elevated and await _pressure_counts(session, user.id):
         signals["pressure_elevated"] = True
-    result = score_signals(signals, user.language, labels.reasons)
+    reader_heat = sum(POINTS[key] for key in MESSAGE_SIGNALS if signals.get(key))
+    signals, watcher_hits, watcher_overrides = await _watch(session, text or "", signals, user.language)
+    looked = [ledger_line(signals, user.language), reader_line(labels.source, user.language, reader_heat), *watcher_hits]
+    rep = await reputation.lookup(session, recipient)
+    number_override: dict[str, str] = {}
+    if rep["flagged"]:
+        signals["flagged_number"] = True
+        line = reputation.reason_line(rep, user.language)
+        number_override["flagged_number"] = line
+        looked.append({
+            "id": "lineup",
+            "name": "La Ficha" if user.language == "es" else "The Line-up",
+            "sentence": line,
+            "signal": "flagged_number",
+            "heat": POINTS["flagged_number"],
+        })
+    why_id = why if known_why(why) else None
+    why_weight = 0
+    why_sentence = ""
+    if why_id:
+        ranked = await _ranked(session, user.language)
+        chosen = next(item for item in ranked if item["id"] == why_id)
+        signals, why_weight = apply_why(signals, why_id, chosen["q"])
+        if why_weight:
+            why_sentence = reason_sentence(user.language, why_id, chosen["rank"], chosen["of"])
+    overrides = {**labels.reasons, **watcher_overrides, **number_override}
+    if why_sentence:
+        overrides["stated_reason"] = why_sentence
+        looked.append(reason_line(user.language, why_sentence, why_weight))
+    weights = {"stated_reason": why_weight} if why_weight else None
+    result = score_signals(signals, user.language, overrides, weights)
     status = {"allow": "allowed", "verify": "verifying", "hold": "held"}[result.outcome]
     attempt = PaymentAttempt(
         id=str(uuid.uuid4()),
@@ -190,15 +356,23 @@ async def check_payment(
         score=result.score,
     )
     session.add(attempt)
-    stored_signals = {**result.signals, "_source": labels.source}
+    stored_signals = {**result.signals, "_source": labels.source, "_looked": looked}
+    if why_id:
+        stored_signals["_why"] = why_id
+        stored_signals["_why_weight"] = why_weight
+        if why_sentence:
+            stored_signals["_why_sentence"] = why_sentence
     session.add(_risk_row(attempt, result, stored_signals))
     approval = None
     if result.outcome == "hold":
         contact = await _contact_for_user(session, user)
         approval = _approval(attempt, contact)
         session.add(approval)
+    await session.flush()
+    if result.outcome == "allow" and why_id:
+        await _observe(session, attempt.id, dispute=False)
     await session.commit()
-    return _check_body(attempt, result.reasons, labels.source, approval, user.language, result.signals)
+    return await _body(session, attempt, result.reasons, labels.source, approval, user.language, result.signals)
 
 
 async def check_message(
@@ -213,7 +387,25 @@ async def check_message(
     text = redact(prompt_text)
     image = decode_image(image_base64) if image_base64 else None
     labels = await label_message(text, image, user.language)
-    result = score_signals(labels.signals, user.language, labels.reasons)
+    signals = dict(labels.signals)
+    reader_heat = sum(POINTS[key] for key in MESSAGE_SIGNALS if signals.get(key))
+    signals, watcher_hits, watcher_overrides = await _watch(session, text or "", signals, user.language)
+    looked = [reader_line(labels.source, user.language, reader_heat), *watcher_hits]
+    overrides = {**labels.reasons, **watcher_overrides}
+    weights = None
+    suggested = None
+    why_id = suggest(text or "")
+    if why_id:
+        ranked = await _ranked(session, user.language)
+        chosen = next(item for item in ranked if item["id"] == why_id)
+        signals, weight = apply_why(signals, why_id, chosen["q"])
+        if weight:
+            sentence = reason_sentence(user.language, why_id, chosen["rank"], chosen["of"])
+            overrides["stated_reason"] = sentence
+            weights = {"stated_reason": weight}
+            looked.append(reason_line(user.language, sentence, weight))
+        suggested = chosen
+    result = score_signals(signals, user.language, overrides, weights)
     return {
         "score": result.score,
         "outcome": result.outcome,
@@ -222,6 +414,9 @@ async def check_message(
         "signals": result.signals,
         "label_source": labels.source,
         "saved_payment": False,
+        "suggested_why": suggested,
+        "review_note": review_note(user.language),
+        "looked": looked,
     }
 
 
@@ -236,30 +431,40 @@ async def apply_friction(
     if attempt.status in {"approved", "denied", "cancelled", "expired", "allowed"}:
         raise PermissionError("This payment is already decided.")
     signals, source = await _latest_signals(session, attempt.id)
+    raw = await _raw_signals(session, attempt.id)
     if on_call:
         signals["on_call"] = True
     if told_to_keep_secret:
         signals["secrecy"] = True
-    labels = LabelResult(signals={key: bool(signals.get(key)) for key in (
-        "authority_claim",
-        "threat_or_reward",
-        "urgency",
-        "secrecy",
-        "sensitive_request",
-    )}, reasons={}, source=source)
-    result = score_signals(signals, user.language, {})
+    why_id = raw.get("_why") if known_why(str(raw.get("_why") or "")) else None
+    why_weight = int(raw.get("_why_weight") or 0)
+    why_sentence = str(raw.get("_why_sentence") or "")
+    overrides = {"stated_reason": why_sentence} if why_sentence else {}
+    weights = {"stated_reason": why_weight} if signals.get("stated_reason") and why_weight else None
+    result = score_signals(signals, user.language, overrides, weights)
     attempt.score = result.score
     attempt.outcome = result.outcome
     attempt.stage = result.stage
     attempt.status = {"allow": "allowed", "verify": "verifying", "hold": "held"}[result.outcome]
-    session.add(_risk_row(attempt, result, {**result.signals, "_source": labels.source}))
+    stored = {**result.signals, "_source": source}
+    if why_id:
+        stored["_why"] = why_id
+        stored["_why_weight"] = why_weight
+        if why_sentence:
+            stored["_why_sentence"] = why_sentence
+    if isinstance(raw.get("_looked"), list):
+        stored["_looked"] = raw["_looked"]
+    session.add(_risk_row(attempt, result, stored))
     approval = await _pending_approval(session, attempt.id)
     if result.outcome == "hold" and approval is None:
         contact = await _contact_for_user(session, user)
         approval = _approval(attempt, contact)
         session.add(approval)
+    await session.flush()
+    if result.outcome == "allow":
+        await _observe(session, attempt.id, dispute=False)
     await session.commit()
-    return _check_body(attempt, result.reasons, labels.source, approval, user.language, result.signals)
+    return await _body(session, attempt, result.reasons, source, approval, user.language, result.signals)
 
 
 async def ask_contact(session: AsyncSession, attempt_id: str, user_id: str) -> dict:
@@ -278,7 +483,7 @@ async def ask_contact(session: AsyncSession, attempt_id: str, user_id: str) -> d
         await session.commit()
     reasons, source = await _latest_reasons(session, attempt.id)
     signals, _source = await _latest_signals(session, attempt.id)
-    return _check_body(attempt, reasons, source, approval, user.language, signals)
+    return await _body(session, attempt, reasons, source, approval, user.language, signals)
 
 
 async def continue_payment(session: AsyncSession, attempt_id: str, user_id: str) -> dict:
@@ -291,10 +496,11 @@ async def continue_payment(session: AsyncSession, attempt_id: str, user_id: str)
     if attempt.status != "verifying":
         raise PermissionError("This payment is already decided.")
     attempt.status = "allowed"
+    await _observe(session, attempt.id, dispute=False)
     await session.commit()
     reasons, source = await _latest_reasons(session, attempt.id)
     signals, _source = await _latest_signals(session, attempt.id)
-    return _check_body(attempt, reasons, source, None, user.language, signals)
+    return await _body(session, attempt, reasons, source, None, user.language, signals)
 
 
 async def cancel_payment(session: AsyncSession, attempt_id: str, user_id: str) -> dict:
@@ -309,7 +515,7 @@ async def cancel_payment(session: AsyncSession, attempt_id: str, user_id: str) -
     await session.commit()
     reasons, source = await _latest_reasons(session, attempt.id)
     signals, _source = await _latest_signals(session, attempt.id)
-    return _check_body(attempt, reasons, source, approval, user.language, signals)
+    return await _body(session, attempt, reasons, source, approval, user.language, signals)
 
 
 async def get_attempt(session: AsyncSession, attempt_id: str, user_id: str) -> dict:
@@ -318,7 +524,7 @@ async def get_attempt(session: AsyncSession, attempt_id: str, user_id: str) -> d
     await _expire(session, approval, attempt)
     reasons, source = await _latest_reasons(session, attempt.id)
     signals, _source = await _latest_signals(session, attempt.id)
-    return _check_body(attempt, reasons, source, approval, user.language, signals)
+    return await _body(session, attempt, reasons, source, approval, user.language, signals)
 
 
 async def crew_view(session: AsyncSession, token: str) -> dict:
@@ -362,6 +568,7 @@ async def decide(session: AsyncSession, approval_id: str, token: str, decision: 
     approval.status = decision
     approval.decided_at = utcnow()
     attempt.status = decision
+    await _observe(session, attempt.id, dispute=decision == "denied")
     await session.commit()
     user = await _user(session, attempt.user_id)
     reasons, _source = await _latest_reasons(session, attempt.id)
@@ -540,6 +747,64 @@ def _approval(attempt: PaymentAttempt, contact: Contact) -> ApprovalRequest:
     )
 
 
+async def _ranked(session: AsyncSession, language: str) -> list[dict]:
+    rows = (await session.scalars(select(ReasonBelief))).all()
+    counts = {row.reason_id: (row.successes, row.disputes) for row in rows}
+    return rank_reasons(counts, "es" if language == "es" else "en")
+
+
+async def _raw_signals(session: AsyncSession, attempt_id: str) -> dict:
+    row = await _latest_risk(session, attempt_id)
+    if row is None:
+        return {}
+    raw = loads(row.signals, {})
+    return raw if isinstance(raw, dict) else {}
+
+
+async def _observe(session: AsyncSession, attempt_id: str, dispute: bool) -> None:
+    if await session.get(ReasonObservation, attempt_id) is not None:
+        return
+    raw = await _raw_signals(session, attempt_id)
+    why_id = raw.get("_why")
+    if not known_why(str(why_id or "")):
+        return
+    reason_id = str(why_id)
+    belief = await session.get(ReasonBelief, reason_id)
+    if belief is None:
+        belief = ReasonBelief(reason_id=reason_id, successes=0, disputes=0)
+        session.add(belief)
+    if dispute:
+        belief.disputes += 1
+    else:
+        belief.successes += 1
+    session.add(ReasonObservation(attempt_id=attempt_id, reason_id=reason_id, target=1 if dispute else 0))
+
+
+async def _why_view(session: AsyncSession, attempt_id: str, language: str) -> dict | None:
+    raw = await _raw_signals(session, attempt_id)
+    why_id = raw.get("_why")
+    if not known_why(str(why_id or "")):
+        return None
+    return next(item for item in await _ranked(session, language) if item["id"] == why_id)
+
+
+async def _body(
+    session: AsyncSession,
+    attempt: PaymentAttempt,
+    reasons: list[str],
+    source: str,
+    approval: ApprovalRequest | None,
+    language: str,
+    signals: dict | None = None,
+) -> dict:
+    body = _check_body(attempt, reasons, source, approval, language, signals)
+    body["why"] = await _why_view(session, attempt.id, language)
+    raw = await _raw_signals(session, attempt.id)
+    looked = raw.get("_looked")
+    body["looked"] = looked if isinstance(looked, list) else []
+    return body
+
+
 def _check_body(
     attempt: PaymentAttempt,
     reasons: list[str],
@@ -565,6 +830,7 @@ def _check_body(
         "approval_status": None if approval is None else approval.status,
         "warning": warning_for(language),
         "created_at": as_utc(attempt.created_at).isoformat(),
+        "why": None,
     }
 
 
@@ -733,7 +999,12 @@ async def _tiger_ready(session: AsyncSession) -> bool:
         return False
     try:
         found = await session.execute(
-            text("SELECT 1 FROM pg_matviews WHERE matviewname = 'attempts_hourly'")
+            text(
+                """
+                SELECT 1 FROM timescaledb_information.continuous_aggregates
+                WHERE view_name = 'attempts_hourly'
+                """
+            )
         )
         return found.first() is not None
     except Exception:

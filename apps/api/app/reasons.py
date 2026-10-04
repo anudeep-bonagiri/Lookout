@@ -9,6 +9,8 @@ POINTS: dict[str, int] = {
     "sensitive_request": 15,
     "on_call": 10,
     "pressure_elevated": 10,
+    "stated_reason": 15,
+    "flagged_number": 20,
 }
 
 REASONS: dict[str, dict[str, str]] = {
@@ -23,6 +25,8 @@ REASONS: dict[str, dict[str, str]] = {
         "sensitive_request": "They are asking for gift cards, codes, or remote access.",
         "on_call": "You said you are on the phone with them right now.",
         "pressure_elevated": "Your pulse or breathing is higher than a moment ago.",
+        "stated_reason": "The reason you gave for this amount ranks high enough to count.",
+        "flagged_number": "This number has been reported as a scam by other people.",
     },
     "es": {
         "new_recipient": "Esta persona no es alguien a quien usted le haya pagado antes.",
@@ -35,6 +39,8 @@ REASONS: dict[str, dict[str, str]] = {
         "sensitive_request": "Le piden tarjetas de regalo, códigos o acceso remoto.",
         "on_call": "Usted dijo que está al teléfono con ellos ahora mismo.",
         "pressure_elevated": "Su pulso o su respiración está más alto que hace un momento.",
+        "stated_reason": "La razón que usted dio para esta cantidad tiene amenaza suficiente para contar.",
+        "flagged_number": "Otras personas han reportado este número como una estafa.",
     },
 }
 

@@ -1,5 +1,10 @@
+import { Device } from "@/components/Device";
 import { PressureView } from "@/components/PressureView";
 
 export default function PressurePage() {
-  return <PressureView />;
+  return (
+    <Device>
+      <PressureView />
+    </Device>
+  );
 }

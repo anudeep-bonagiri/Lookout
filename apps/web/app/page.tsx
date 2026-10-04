@@ -1,5 +1,5 @@
-import { GrandmaFlow } from "@/components/GrandmaFlow";
+import { ScrollIntro } from "@/components/ScrollIntro";
 
 export default function HomePage() {
-  return <GrandmaFlow />;
+  return <ScrollIntro />;
 }
