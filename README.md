@@ -1,6 +1,6 @@
 # Lookout
 
-A risky payment waits until someone you trust agrees. This is a practice wallet. No real money moves.
+A risky payment waits until someone you trust agrees. This is a practice wallet!
 
 ## Main application
 
