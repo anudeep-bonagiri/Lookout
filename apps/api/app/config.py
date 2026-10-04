@@ -3,7 +3,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-ROOT = Path(__file__).resolve().parents[3]
+_P = Path(__file__).resolve().parents
+ROOT = _P[3] if len(_P) > 3 else _P[-1]
 API_ROOT = Path(__file__).resolve().parents[1]
 
 

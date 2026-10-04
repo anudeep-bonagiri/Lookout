@@ -54,7 +54,7 @@ export function ScrollIntro() {
     const draw = (i: number) => {
       const img = imgs[i];
       if (!img || !img.complete || !img.naturalWidth) return;
-      if (i === lastFrame && canvas.width === canvas.dataset.w0) return;
+      if (i === lastFrame) return;
       lastFrame = i;
       const cw = canvas.width;
       const ch = canvas.height;
