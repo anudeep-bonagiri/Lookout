@@ -1,0 +1,10 @@
+node_modules
+.next
+.venv
+__pycache__
+.pytest_cache
+.env
+*.db
+apps/api/data
+.DS_Store
+npm-debug.log*

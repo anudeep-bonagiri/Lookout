@@ -1,0 +1,97 @@
+[
+  {
+    "name": "rent",
+    "group": "normal",
+    "amount": 900,
+    "recipient": "Oak Apartments",
+    "method": "ach",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {},
+    "expect_outcome": "allow"
+  },
+  {
+    "name": "electric_bill",
+    "group": "normal",
+    "amount": 140,
+    "recipient": "CPS Energy",
+    "method": "ach",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {},
+    "expect_outcome": "allow"
+  },
+  {
+    "name": "groceries",
+    "group": "normal",
+    "amount": 62,
+    "recipient": "H-E-B",
+    "method": "ach",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {},
+    "expect_outcome": "allow"
+  },
+  {
+    "name": "birthday",
+    "group": "normal",
+    "amount": 50,
+    "recipient": "Sofia",
+    "method": "ach",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {},
+    "expect_outcome": "allow"
+  },
+  {
+    "name": "water_bill",
+    "group": "normal",
+    "amount": 48,
+    "recipient": "City Water",
+    "method": "ach",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {},
+    "expect_outcome": "allow"
+  },
+  {
+    "name": "authority_word_alone",
+    "group": "single",
+    "amount": 140,
+    "recipient": "CPS Energy",
+    "method": "ach",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {"authority_claim": true},
+    "expect_outcome": "allow"
+  },
+  {
+    "name": "cousin_with_a_story",
+    "group": "verify",
+    "amount": 50,
+    "recipient": "Cousin Luis",
+    "method": "ach",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {"authority_claim": true, "threat_or_reward": true},
+    "expect_outcome": "verify",
+    "expect_stage": 2
+  },
+  {
+    "name": "irs_getaway",
+    "group": "scam",
+    "amount": 2000,
+    "recipient": "IRS Collections",
+    "method": "instant",
+    "history_amounts": [900, 140, 62, 50, 48],
+    "known_recipients": ["oak apartments", "cps energy", "h-e-b", "sofia", "city water"],
+    "signals": {
+      "authority_claim": true,
+      "threat_or_reward": true,
+      "urgency": true,
+      "secrecy": true
+    },
+    "expect_outcome": "hold",
+    "expect_stage_min": 3
+  }
+]

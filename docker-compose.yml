@@ -1,0 +1,38 @@
+name: scam-shield
+
+services:
+  api:
+    build: ./apps/api
+    env_file: .env
+    environment:
+      DATABASE_URL: ${TIGER_DATABASE_URL:-sqlite+aiosqlite:////data/scamshield.db}
+    volumes:
+      - shield-data:/data
+    expose:
+      - "8000"
+  web:
+    build: ./apps/web
+    environment:
+      API_URL: http://api:8000
+    depends_on:
+      - api
+    expose:
+      - "3000"
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - web
+
+volumes:
+  shield-data:
+  caddy-data:
+  caddy-config:
