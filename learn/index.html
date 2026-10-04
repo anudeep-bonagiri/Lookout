@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stop the Heist — Learn the Signals</title>
+  <meta name="description" content="A two-minute game. Read a message, flag the scam signals, and watch Lookout's risk score build the way it does on a real payment. Earn points as you learn.">
+  <meta property="og:title" content="Stop the Heist — Learn the Signals">
+  <meta property="og:description" content="Read a message, flag the scam signals, earn points. Learn exactly how Lookout scores risk.">
+  <meta property="og:image" content="/hunt-poster.jpg">
+  <meta name="theme-color" content="#1c140e">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Fraunces:opsz,wght@9..144,560;9..144,620;9..144,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #1c140e;
+      --ink-deep: #100c09;
+      --brass: #e2b45c;
+      --brass-soft: #f0d49a;
+      --paper: #f4efe4;
+      --muted: #c9bba6;
+      --alarm: #9c2f2f;
+      --alarm-lit: #d6513f;
+      --clear: #6fae6f;
+      --caution: #d8a13a;
+      --line: rgba(226, 180, 92, 0.32);
+      --card: rgba(244, 239, 228, 0.045);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--paper);
+      background:
+        radial-gradient(120% 70% at 50% -10%, rgba(226,180,92,0.08) 0%, rgba(16,12,9,0) 55%),
+        var(--ink);
+      font-family: "Atkinson Hyperlegible", system-ui, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    a { color: var(--brass); }
+
+    .wrap { max-width: 640px; margin: 0 auto; padding: 1.1rem 1.1rem 4rem; }
+
+    header.top {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; padding: 0.4rem 0 1.1rem;
+    }
+    .brand { display: flex; flex-direction: column; gap: 0.1rem; text-decoration: none; }
+    .brand .kick { color: var(--brass); letter-spacing: 0.18em; text-transform: uppercase; font-size: 0.64rem; font-weight: 700; }
+    .brand .name { font-family: Fraunces, serif; font-weight: 620; font-size: 1.15rem; letter-spacing: -0.02em; color: var(--paper); }
+
+    .score-chip {
+      border: 1px solid var(--line); border-radius: 999px;
+      padding: 0.35rem 0.85rem; text-align: right; background: var(--card);
+      white-space: nowrap;
+    }
+    .score-chip .n { font-family: Fraunces, serif; font-weight: 700; font-size: 1.25rem; color: var(--brass); line-height: 1; }
+    .score-chip .l { display: block; font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-top: 0.15rem; }
+
+    h1 { font-family: Fraunces, serif; font-weight: 620; letter-spacing: -0.035em; line-height: 1.0; font-size: clamp(2rem, 7vw, 2.9rem); margin: 0.2rem 0 0.6rem; }
+    .lede { color: var(--paper); font-size: 1.04rem; margin: 0 0 1.4rem; }
+    .lede b { color: var(--brass-soft); }
+
+    .card {
+      border: 1px solid var(--line); border-radius: 16px;
+      background: var(--card); padding: 1.15rem 1.15rem 1.25rem; margin: 0 0 1.1rem;
+    }
+
+    .progress { height: 7px; border-radius: 999px; background: rgba(244,239,228,0.08); overflow: hidden; margin: 0 0 1.1rem; }
+    .progress > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--brass), var(--brass-soft)); transition: width .5s cubic-bezier(.16,1,.3,1); }
+
+    .round-meta { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 0.6rem; color: var(--muted); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; }
+
+    .msg {
+      border-left: 3px solid var(--brass); background: rgba(16,12,9,0.5);
+      padding: 0.85rem 1rem; border-radius: 0 10px 10px 0; margin: 0 0 1rem;
+      font-size: 1.08rem;
+    }
+    .msg .who { display: block; color: var(--muted); font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.35rem; }
+
+    .ask { font-weight: 700; margin: 0 0 0.7rem; }
+
+    .signals { display: grid; gap: 0.5rem; }
+    .sig {
+      display: flex; align-items: center; gap: 0.7rem; cursor: pointer;
+      border: 1px solid var(--line); border-radius: 11px; padding: 0.65rem 0.8rem;
+      background: rgba(244,239,228,0.02); transition: border-color .15s, background .15s;
+      user-select: none;
+    }
+    .sig:hover { border-color: var(--brass); }
+    .sig input { position: absolute; opacity: 0; pointer-events: none; }
+    .sig .box {
+      width: 22px; height: 22px; flex: 0 0 22px; border-radius: 6px;
+      border: 2px solid var(--muted); display: grid; place-items: center;
+      color: var(--ink); font-weight: 700; font-size: 0.9rem; transition: all .15s;
+    }
+    .sig.on { border-color: var(--brass); background: rgba(226,180,92,0.08); }
+    .sig.on .box { background: var(--brass); border-color: var(--brass); }
+    .sig .t { font-weight: 700; }
+    .sig .d { display: block; font-weight: 400; color: var(--muted); font-size: 0.82rem; margin-top: 0.1rem; }
+    .sig .pts { margin-left: auto; color: var(--brass); font-family: Fraunces, serif; font-weight: 700; font-size: 0.95rem; opacity: 0.0; transition: opacity .2s; }
+    .reveal .sig .pts { opacity: 1; }
+    .reveal .sig { cursor: default; }
+    .reveal .sig.correct { border-color: var(--clear); }
+    .reveal .sig.correct .box { background: var(--clear); border-color: var(--clear); }
+    .reveal .sig.missed { border-color: var(--alarm-lit); border-style: dashed; }
+    .reveal .sig.wrong { border-color: var(--alarm-lit); opacity: 0.7; }
+    .reveal .sig.wrong .box { background: var(--alarm-lit); border-color: var(--alarm-lit); }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
+      font-family: "Atkinson Hyperlegible", sans-serif; font-weight: 700; font-size: 1rem;
+      border: 0; border-radius: 11px; padding: 0.8rem 1.3rem; cursor: pointer;
+      background: var(--brass); color: var(--ink-deep); transition: transform .1s, filter .15s;
+      width: 100%; margin-top: 1rem;
+    }
+    .btn:hover { filter: brightness(1.06); }
+    .btn:active { transform: translateY(1px); }
+    .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
+    .btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--paper); }
+
+    .result { margin-top: 1.1rem; padding-top: 1.05rem; border-top: 1px dashed var(--line); display: none; }
+    .reveal .result { display: block; animation: rise .4s cubic-bezier(.16,1,.3,1); }
+    @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    .verdict { display: flex; align-items: center; gap: 0.7rem; margin: 0 0 0.6rem; }
+    .verdict .dot { width: 14px; height: 14px; border-radius: 50%; flex: 0 0 14px; }
+    .verdict .band { font-family: Fraunces, serif; font-weight: 700; font-size: 1.3rem; letter-spacing: -0.01em; }
+    .verdict .tot { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+    .verdict .tot b { color: var(--paper); font-size: 1.05rem; font-family: Fraunces, serif; }
+    .band-hold .band { color: var(--alarm-lit); } .band-hold .dot { background: var(--alarm-lit); box-shadow: 0 0 14px rgba(214,81,63,0.6); }
+    .band-caution .band { color: var(--caution); } .band-caution .dot { background: var(--caution); box-shadow: 0 0 12px rgba(216,161,58,0.5); }
+    .band-clear .band { color: var(--clear); } .band-clear .dot { background: var(--clear); box-shadow: 0 0 12px rgba(111,174,111,0.5); }
+
+    .explain { color: var(--paper); font-size: 0.95rem; margin: 0.3rem 0 0; }
+    .explain .earn { color: var(--brass-soft); font-weight: 700; }
+
+    .legend { font-size: 0.86rem; color: var(--muted); }
+    .legend b { color: var(--paper); }
+    .bands { display: flex; gap: 0.5rem; margin-top: 0.7rem; flex-wrap: wrap; }
+    .bands span { border: 1px solid var(--line); border-radius: 999px; padding: 0.25rem 0.7rem; font-size: 0.78rem; }
+    .bands .b-clear { color: var(--clear); } .bands .b-caution { color: var(--caution); } .bands .b-hold { color: var(--alarm-lit); }
+
+    /* final */
+    #final { display: none; text-align: center; }
+    #final.show { display: block; animation: rise .5s cubic-bezier(.16,1,.3,1); }
+    #final .badge {
+      font-family: Fraunces, serif; font-weight: 700; font-size: clamp(1.6rem, 6vw, 2.3rem);
+      color: var(--brass); margin: 0.2rem 0 0.1rem; letter-spacing: -0.02em;
+    }
+    #final .big { font-family: Fraunces, serif; font-weight: 700; font-size: clamp(3rem, 16vw, 5rem); color: var(--paper); line-height: 1; margin: 0.4rem 0; }
+    #final .sub { color: var(--muted); }
+    #final .reward { border: 1px solid var(--line); border-radius: 14px; background: var(--card); padding: 1rem; margin: 1.2rem 0; }
+    #final .reward .code { font-family: Fraunces, serif; font-weight: 700; font-size: 1.4rem; color: var(--brass-soft); letter-spacing: 0.06em; margin-top: 0.3rem; }
+
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 2rem; }
+    footer a { color: var(--muted); }
+
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <a class="brand" href="/">
+        <span class="kick">Stop the Heist</span>
+        <span class="name">Lookout · Learn</span>
+      </a>
+      <div class="score-chip">
+        <span class="n" id="scoreNum">0</span>
+        <span class="l">points</span>
+      </div>
+    </header>
+
+    <!-- INTRO -->
+    <section id="intro">
+      <h1>Spot the signals.<br>Stop the heist.</h1>
+      <p class="lede">Lookout holds a risky payment until it reads the words a caller or text used. Each <b>scam signal</b> it hears adds points. Enough points, and the money waits for someone you trust. Play the hand yourself.</p>
+
+      <div class="card legend">
+        <b>How the score adds up.</b> Every signal below carries a weight. Lookout sums the ones it hears, then lands on a verdict:
+        <div class="bands">
+          <span class="b-clear">Clear · under 20</span>
+          <span class="b-caution">Caution · 20 to 39</span>
+          <span class="b-hold">Hold · 40 and up</span>
+        </div>
+      </div>
+
+      <button class="btn" id="startBtn">Start the round</button>
+      <p class="sub" style="color:var(--muted);font-size:0.82rem;text-align:center;margin-top:0.8rem">Six messages. Flag what you see. Two minutes.</p>
+    </section>
+
+    <!-- GAME -->
+    <section id="game" hidden>
+      <div class="progress"><i id="bar"></i></div>
+      <div class="card" id="roundCard">
+        <div class="round-meta">
+          <span id="roundLabel">Message 1 of 6</span>
+          <span id="roundPts"></span>
+        </div>
+        <div class="msg">
+          <span class="who" id="msgWho">The caller said</span>
+          <span id="msgText"></span>
+        </div>
+        <p class="ask">Which scam signals do you hear? Tap all that apply.</p>
+        <div class="signals" id="signals"></div>
+
+        <button class="btn" id="checkBtn" disabled>Check my read</button>
+
+        <div class="result" id="result">
+          <div class="verdict" id="verdict">
+            <span class="dot"></span>
+            <span class="band" id="bandText"></span>
+            <span class="tot">Lookout score <b id="totText">0</b></span>
+          </div>
+          <p class="explain" id="explain"></p>
+          <button class="btn" id="nextBtn">Next message</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINAL -->
+    <section id="final">
+      <div class="card">
+        <span class="kick" style="color:var(--brass);letter-spacing:0.18em;text-transform:uppercase;font-size:0.64rem;font-weight:700">Round complete</span>
+        <div class="badge" id="finalBadge">Scam Buster</div>
+        <div class="big"><span id="finalPts">0</span></div>
+        <p class="sub">points this round · best <b id="bestPts" style="color:var(--brass-soft)">0</b></p>
+
+        <div class="reward" id="rewardBox">
+          <div style="font-size:0.95rem;color:var(--paper)">Your badge code</div>
+          <div class="code" id="rewardCode">—</div>
+          <div class="sub" style="font-size:0.8rem;margin-top:0.5rem">Screenshot this to claim a reward at the booth. Top scorers win first.</div>
+        </div>
+
+        <button class="btn" id="againBtn">Play again</button>
+        <button class="btn ghost" id="shareBtn">Share my score</button>
+        <a class="btn ghost" href="/" style="text-decoration:none">Back to Lookout</a>
+      </div>
+    </section>
+
+    <footer>
+      Lookout is a practice tool. No real money moves. <a href="/">stoptheheist.us</a>
+    </footer>
+  </div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    // The real Lookout weights (apps/api/app/reasons.py) and call thresholds (apps/api/app/voice.py).
+    var SIGNALS = {
+      authority:  { t: "Authority claim",   d: "Says they are the IRS, a bank, the police, tech support.",        pts: 10 },
+      threat:     { t: "Threat or reward",  d: "Arrest, a fine, a frozen account, or a prize you must claim.",    pts: 15 },
+      urgency:    { t: "Urgency",           d: "Right now, today, before it is too late.",                        pts: 10 },
+      secrecy:    { t: "Secrecy",           d: "Do not tell your family, your bank, or anyone.",                  pts: 15 },
+      sensitive:  { t: "Sensitive request", d: "Gift cards, a wire, a code, or remote access to your device.",    pts: 15 }
+    };
+    var ORDER = ["authority", "threat", "urgency", "secrecy", "sensitive"];
+    var CAUTION_AT = 20, SCAM_AT = 40;
+
+    var ROUNDS = [
+      { who: "The caller said",
+        text: "This is the IRS. There is a warrant for your arrest. Pay what you owe today, with gift cards, or officers come this afternoon.",
+        flags: ["authority", "threat", "urgency", "sensitive"],
+        note: "The classic. Four signals at once. A real agency never threatens arrest by phone or asks for gift cards." },
+      { who: "The text said",
+        text: "Hi grandma, it's me. I'm in jail and I need bail wired right away. Please don't tell mom or dad, I'm embarrassed.",
+        flags: ["threat", "urgency", "secrecy", "sensitive"],
+        note: "The grandparent scam. The secrecy is the tell: cutting you off from the people who would catch it." },
+      { who: "The caller said",
+        text: "This is your bank's fraud department. To protect your account, wire the balance to a safe account immediately.",
+        flags: ["authority", "urgency", "sensitive"],
+        note: "Thinner, but still worrying. Lands in Caution. Your real bank never asks you to wire money to 'protect' it." },
+      { who: "Your daughter texted",
+        text: "Hey mom, can you send me fifty dollars for groceries when you get a sec? No rush.",
+        flags: [],
+        note: "A normal payment. No signals. Lookout lets this one through, and so should you." },
+      { who: "The email said",
+        text: "Congratulations, you have won. Pay a small processing fee with a gift card now to release your prize before it expires.",
+        flags: ["threat", "urgency", "sensitive"],
+        note: "A reward is just a threat wearing a smile. Paying to receive money is always the trap." },
+      { who: "The pop-up said",
+        text: "Warning: your computer is infected. Call support and give us remote access now. Keep this window open and tell no one.",
+        flags: ["authority", "secrecy", "sensitive"],
+        note: "Fake tech support. Remote access hands them the keys, and the secrecy keeps help away." }
+    ];
+
+    var LS_BEST = "sth_learn_best";
+    var state = { i: 0, picked: {}, revealed: false, points: 0 };
+
+    var $ = function (id) { return document.getElementById(id); };
+    function read(k, d) { try { var v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } }
+    function write(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+
+    function setScore(n) { state.points = n; $("scoreNum").textContent = n; }
+
+    function renderBest() {
+      var best = parseInt(read(LS_BEST, "0"), 10) || 0;
+      if ($("bestPts")) $("bestPts").textContent = best;
+      return best;
+    }
+
+    function startGame() {
+      state.i = 0; setScore(0);
+      $("intro").style.display = "none";
+      $("final").classList.remove("show");
+      $("game").hidden = false;
+      renderRound();
+    }
+
+    function renderRound() {
+      state.picked = {}; state.revealed = false;
+      var r = ROUNDS[state.i];
+      $("roundCard").classList.remove("reveal", "band-hold", "band-caution", "band-clear");
+      $("roundLabel").textContent = "Message " + (state.i + 1) + " of " + ROUNDS.length;
+      $("roundPts").textContent = "";
+      $("msgWho").textContent = r.who;
+      $("msgText").textContent = "“" + r.text + "”";
+      $("bar").style.width = Math.round((state.i / ROUNDS.length) * 100) + "%";
+
+      var box = $("signals"); box.innerHTML = "";
+      ORDER.forEach(function (key) {
+        var s = SIGNALS[key];
+        var label = document.createElement("label");
+        label.className = "sig"; label.dataset.key = key;
+        label.innerHTML =
+          '<input type="checkbox" aria-label="' + s.t + '">' +
+          '<span class="box" aria-hidden="true">✓</span>' +
+          '<span><span class="t">' + s.t + '</span><span class="d">' + s.d + '</span></span>' +
+          '<span class="pts">+' + s.pts + '</span>';
+        var input = label.querySelector("input");
+        label.addEventListener("click", function (e) {
+          if (state.revealed) { e.preventDefault(); return; }
+          if (e.target !== input) input.checked = !input.checked;
+          state.picked[key] = input.checked;
+          label.classList.toggle("on", input.checked);
+          $("checkBtn").disabled = false;
+        });
+        box.appendChild(label);
+      });
+
+      $("checkBtn").disabled = true;
+      $("checkBtn").style.display = "";
+      $("result").classList.remove("show");
+      $("roundCard").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function check() {
+      var r = ROUNDS[state.i];
+      state.revealed = true;
+      $("roundCard").classList.add("reveal");
+      $("checkBtn").style.display = "none";
+
+      var lookoutScore = 0, correct = 0, wrong = 0;
+      var want = {}; r.flags.forEach(function (k) { want[k] = true; });
+
+      Array.prototype.forEach.call($("signals").children, function (label) {
+        var key = label.dataset.key;
+        var isWant = !!want[key];
+        var isPicked = !!state.picked[key];
+        if (isWant) lookoutScore += SIGNALS[key].pts;
+        if (isWant && isPicked) { label.classList.add("correct"); correct++; }
+        else if (isWant && !isPicked) { label.classList.add("missed"); }
+        else if (!isWant && isPicked) { label.classList.add("wrong"); wrong++; }
+      });
+
+      // Game points: reward accurate reading of the signals.
+      var earned = correct * 10 - wrong * 5;
+      var missedCount = r.flags.length - correct;
+      if (missedCount === 0 && wrong === 0) earned += 15; // perfect read bonus
+      if (r.flags.length === 0 && wrong === 0) earned += 15; // correctly saw a safe message
+      if (earned < 0) earned = 0;
+      setScore(state.points + earned);
+
+      // Lookout's verdict band.
+      var band, cls;
+      if (lookoutScore >= SCAM_AT) { band = "Hold · looks like a scam"; cls = "band-hold"; }
+      else if (lookoutScore >= CAUTION_AT) { band = "Caution · slow down"; cls = "band-caution"; }
+      else { band = "Clear · no scam signs"; cls = "band-clear"; }
+      $("roundCard").classList.add(cls);
+      $("bandText").textContent = band;
+      $("totText").textContent = lookoutScore;
+
+      var tally = r.flags.length === 0
+        ? "You spotted a safe message."
+        : "You caught " + correct + " of " + r.flags.length + " signals" + (wrong ? ", with " + wrong + " false flag" + (wrong > 1 ? "s" : "") : "") + ".";
+      $("explain").innerHTML = "<span class=\"earn\">+" + earned + " points.</span> " + tally + " " + r.note;
+      $("roundPts").textContent = "+" + earned + " pts";
+      $("bar").style.width = Math.round(((state.i + 1) / ROUNDS.length) * 100) + "%";
+      $("result").classList.add("show");
+      $("result").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+
+    function next() {
+      state.i++;
+      if (state.i >= ROUNDS.length) { finish(); return; }
+      renderRound();
+    }
+
+    function badgeFor(p) {
+      if (p >= 90) return "Vault Keeper";
+      if (p >= 60) return "Scam Buster";
+      if (p >= 30) return "Sharp Eye";
+      return "Lookout Rookie";
+    }
+
+    function finish() {
+      $("game").hidden = true;
+      var p = state.points;
+      var best = parseInt(read(LS_BEST, "0"), 10) || 0;
+      if (p > best) { best = p; write(LS_BEST, String(p)); }
+      $("finalPts").textContent = p;
+      $("finalBadge").textContent = badgeFor(p);
+      $("bestPts").textContent = best;
+      var code = "STH-" + badgeFor(p).split(" ").map(function (w) { return w[0]; }).join("") + "-" + p + "-" + Math.random().toString(36).slice(2, 5).toUpperCase();
+      $("rewardCode").textContent = code;
+      $("final").classList.add("show");
+      $("final").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+    function share() {
+      var p = state.points, b = badgeFor(p);
+      var text = "I scored " + p + " on Stop the Heist and earned " + b + ". Can you spot the scam signals? " + location.origin + "/learn";
+      if (navigator.share) { navigator.share({ title: "Stop the Heist", text: text, url: location.origin + "/learn" }).catch(function () {}); }
+      else {
+        var done = false;
+        try { navigator.clipboard.writeText(text).then(function () {}); done = true; } catch (e) {}
+        $("shareBtn").textContent = done ? "Copied to clipboard" : text;
+      }
+    }
+
+    $("startBtn").addEventListener("click", startGame);
+    $("checkBtn").addEventListener("click", check);
+    $("nextBtn").addEventListener("click", next);
+    $("againBtn").addEventListener("click", startGame);
+    $("shareBtn").addEventListener("click", share);
+
+    renderBest();
+  })();
+  </script>
+</body>
+</html>
