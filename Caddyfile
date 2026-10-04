@@ -1,3 +1,11 @@
 {$DOMAIN} {
-	reverse_proxy web:3000
+	# Twilio fetches the call-in TwiML directly from the FastAPI service.
+	# /voice/incoming, /voice/turn, /voice/audio must reach api, not the Next app.
+	handle /voice/* {
+		reverse_proxy api:8000
+	}
+	# Everything else (landing, wallet, crew, and the /api/* proxy) is the web app.
+	handle {
+		reverse_proxy web:3000
+	}
 }

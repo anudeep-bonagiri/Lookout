@@ -79,7 +79,9 @@ export function HelpLinks({ language }: { language: Lang }) {
 export function CrewQr({ path }: { path: string }) {
   const [qr, setQr] = useState<{ src: string; url: string } | null>(null);
   useEffect(() => {
-    const next = `${window.location.origin}${path}`;
+    // Prefer the deployed site URL so the QR never shows localhost; fall back to the live origin.
+    const base = (process.env.NEXT_PUBLIC_SITE_URL || window.location.origin).replace(/\/$/, "");
+    const next = `${base}${path}`;
     QRCode.toDataURL(next, { margin: 1, width: 320, color: { dark: "#1c140e", light: "#f4efe4" } }).then((src) => {
       setQr({ src, url: next });
     });

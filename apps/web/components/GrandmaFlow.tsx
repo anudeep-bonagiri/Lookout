@@ -79,8 +79,9 @@ export function GrandmaFlow() {
   }, [session, language]);
 
   // Move focus to the new screen so keyboard and screen-reader users are oriented.
+  // preventScroll keeps the brand header in view instead of scrolling the step to the top.
   useEffect(() => {
-    if (step !== "boot") stepRef.current?.focus();
+    if (step !== "boot") stepRef.current?.focus({ preventScroll: true });
   }, [step]);
 
   const reasonLanguage = session?.language || language;
