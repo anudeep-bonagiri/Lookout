@@ -1,6 +1,7 @@
 {
   "name": "lookout",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "dev:api": "cd apps/api && .venv/bin/uvicorn app.main:app --reload --port 8000",
     "dev:web": "npm --prefix apps/web run dev -- -p 3000",
