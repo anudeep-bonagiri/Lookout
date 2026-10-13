@@ -328,6 +328,18 @@ def create_app(database_url: str | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="No audio for that line.")
         return Response(content=data, media_type="audio/mpeg")
 
+    @app.post("/voice/transcript")
+    async def voice_transcript(request: Request, session: AsyncSession = Depends(db)):
+        try:
+            payload = await request.json()
+        except Exception:
+            payload = {}
+        return await voice.ingest_transcript(session, payload)
+
+    @app.get("/voice/transcripts")
+    async def voice_transcripts(session: AsyncSession = Depends(db)):
+        return await service.list_transcripts(session)
+
     @app.get("/numbers/{number}")
     async def number_lookup(number: str, session: AsyncSession = Depends(db)):
         return await service.lookup_number(session, number)

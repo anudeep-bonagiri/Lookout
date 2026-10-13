@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.reputation as reputation
 from app.config import get_settings
+from app.db import CallTranscript, utcnow
 from app.labels import generate_reply, label_message
 from app.reasons import POINTS
 
@@ -77,6 +78,53 @@ def _say(text: str, lang: str = "en") -> str:
     if get_settings().elevenlabs_api_key:
         return f"<Play>/voice/audio?t={_token(text, lang)}</Play>"
     return f'<Say voice="{VOICE}" language="{LANG}">{sax.escape(text)}</Say>'
+
+
+def _caller_from(data: dict) -> str:
+    meta = data.get("metadata") or {}
+    for path in (meta.get("phone_call") or {}, meta):
+        for key in ("external_number", "caller_id", "from_number", "from"):
+            if isinstance(path, dict) and path.get(key):
+                return str(path[key])
+    return ""
+
+
+async def ingest_transcript(session, payload: dict) -> dict:
+    """Write down an ElevenLabs post-call transcript and run it through the scam
+    check — the same labels and scoring the wallet uses."""
+    data = payload.get("data") or payload
+    conv = str(data.get("conversation_id") or utcnow().timestamp())
+    turns = data.get("transcript") or []
+    said = " ".join(
+        str(t.get("message") or "")
+        for t in turns
+        if isinstance(t, dict) and t.get("role") == "user" and t.get("message")
+    ).strip()
+
+    labels = await label_message(said, None, "en")
+    signals = dict(labels.signals)
+    caller = _caller_from(data)
+    if caller:
+        rep = await reputation.lookup(session, caller)
+        if rep["flagged"]:
+            signals["flagged_number"] = True
+    score = call_score(signals)
+    outcome = "scam" if score >= SCAM_AT else "caution" if score >= CAUTION_AT else "clear"
+
+    await session.merge(CallTranscript(
+        conversation_id=conv, caller=caller, text=said[:4000],
+        score=score, outcome=outcome, created_at=utcnow(),
+    ))
+    if outcome == "scam" and caller:
+        await reputation.report(
+            session, caller, source="community",
+            reason_en="Reported by a Lookout call screening.",
+            reason_es="Reportado por una revisión de llamada de Lookout.",
+            commit=False,
+        )
+    await session.commit()
+    return {"conversation_id": conv, "caller": caller, "score": score, "outcome": outcome,
+            "signals": {k: bool(v) for k, v in signals.items()}}
 
 
 async def audio_for(token: str) -> bytes | None:

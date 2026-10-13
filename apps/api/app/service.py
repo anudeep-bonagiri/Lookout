@@ -135,6 +135,21 @@ async def lookup_number(session: AsyncSession, number: str) -> dict:
     return rep
 
 
+async def list_transcripts(session: AsyncSession) -> dict:
+    from app.db import CallTranscript
+
+    rows = (
+        await session.scalars(
+            select(CallTranscript).order_by(CallTranscript.created_at.desc()).limit(50)
+        )
+    ).all()
+    return {"transcripts": [
+        {"conversation_id": r.conversation_id, "caller": r.caller, "text": r.text,
+         "score": r.score, "outcome": r.outcome, "created_at": as_utc(r.created_at).isoformat()}
+        for r in rows
+    ]}
+
+
 async def ensure_watchers(session: AsyncSession) -> None:
     load_desks()
     for spec in DESKS:

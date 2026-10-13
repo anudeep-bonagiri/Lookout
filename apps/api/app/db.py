@@ -121,6 +121,19 @@ class VitalsSample(Base):
     breathing: Mapped[float] = mapped_column(Float)
 
 
+class CallTranscript(Base):
+    """What the ElevenLabs agent heard on a call, written down and scored."""
+
+    __tablename__ = "call_transcripts"
+
+    conversation_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    caller: Mapped[str] = mapped_column(String(40), default="")
+    text: Mapped[str] = mapped_column(Text, default="")
+    score: Mapped[int] = mapped_column(Integer, default=0)
+    outcome: Mapped[str] = mapped_column(String(20), default="clear")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class FlaggedNumber(Base):
     """A phone number reported as a scam. Shared across every wallet, carrier,
     and credit union that reports into the same list."""
