@@ -18,8 +18,8 @@ Add one record. Leave the apex A records alone.
 
 ## 3. Bring it up on the VM
 
-    git clone https://github.com/anudeep-bonagiri/shinyhunters.git
-    cd shinyhunters
+    git clone https://github.com/anudeep-bonagiri/Lookout.git
+    cd Lookout
     cp .env.example .env
     # edit .env, set at minimum:
     #   DOMAIN=api.stoptheheist.us
