@@ -1,13 +1,15 @@
 # Lookout
 
-A risky payment waits until someone you trust agrees. This is a practice wallet!
+A risky payment waits until someone you trust agrees.
+
+Lookout sits between PayPal's approve step and the capture. It holds the authorization, compares what the person or their AI agent was shown with what PayPal was asked to approve, scores the message for scam pressure, and asks a trusted contact before any money is captured. Built for the PayPal AI Hackathon 2026 on the PayPal sandbox. No real money moves.
 
 ## Main application
 
-- `apps/web` is the landing page, the wallet, and the Lookout's phone.
-- `apps/api` receives a payment check and returns allow, pause, or hold.
+- `apps/web` is the landing page, the wallet, and the trusted contact's phone.
+- `apps/api` receives a payment check and returns allow, verify, or hold, and drives the PayPal order through authorize, capture, or void.
 
-Open `/` for the door. Open `/wallet` for Rosa. Open `/crew/maya-demo` for Maya. On a wide screen the wallet sits in one phone. On a real phone it fills the screen.
+Open `/` for the front door. Open `/wallet` for Rosa, the account holder. Open `/trusted/maya-demo` for Maya, her trusted contact. On a wide screen the wallet sits in one phone. On a real phone it fills the screen.
 
 ## Data
 
@@ -21,7 +23,7 @@ Open `/` for the door. Open `/wallet` for Rosa. Open `/crew/maya-demo` for Maya.
 - `apps/api/app/scoring.py` — the fixed score. One signal cannot hold a payment.
 - `apps/api/app/why.py` — why the money is moving, ranked by threat and updated from a finished payment or a denial.
 - `apps/api/app/desks` — watchers. A new file here can notice words and add one signal.
-- `apps/api/app/service.py` — from the check to the Lookout's decision.
+- `apps/api/app/service.py` — from the check to the decision, and the PayPal capture or void that follows it.
 - `apps/api/app/redact.py` — codes are removed before anyone else sees them.
 
 ## PayPal
@@ -44,7 +46,6 @@ Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `PAYPAL_WEBHOOK_ID` in `.env
 
 ## Around the app
 
-- `index.html` and `heist/` — the public crew film.
 - `firmware/esp32` — the alarm light.
 - `apps/vitals` — camera pulse, only from a real reading.
 - `deploy/` — the host.

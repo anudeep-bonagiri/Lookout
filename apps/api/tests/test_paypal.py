@@ -157,7 +157,7 @@ async def test_amount_drift_holds_and_a_denial_voids(client: AsyncClient, fake: 
     blocked = await client.post(f"/attempts/{body['attempt_id']}/continue", json={"user_id": ROSA_ID})
     assert blocked.status_code == 400
 
-    crew = await client.get("/crew/maya-demo")
+    crew = await client.get("/trusted/maya-demo")
     pending = crew.json()["pending"]
     assert pending["approval_id"] == body["approval_id"]
     assert "$5,000" in pending["fact"]

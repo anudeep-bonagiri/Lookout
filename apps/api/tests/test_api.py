@@ -50,7 +50,7 @@ async def test_irs_payment_is_held_and_code_is_not_shared(client: AsyncClient):
     assert len(body["reasons"]) >= 3
     assert "482913" not in response.text
 
-    crew = await client.get("/crew/maya-demo")
+    crew = await client.get("/trusted/maya-demo")
     assert crew.status_code == 200
     pending = crew.json()["pending"]
     assert pending["approval_id"] == body["approval_id"]

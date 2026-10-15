@@ -306,8 +306,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
         except (LookupError, PermissionError) as exc:
             raise fail(exc) from exc
 
-    @app.get("/crew/{token}")
-    async def crew(token: str, session: AsyncSession = Depends(db)):
+    @app.get("/trusted/{token}")
+    async def trusted(token: str, session: AsyncSession = Depends(db)):
         try:
             return await service.crew_view(session, token)
         except LookupError as exc:

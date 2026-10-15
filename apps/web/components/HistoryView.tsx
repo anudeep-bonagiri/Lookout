@@ -38,7 +38,7 @@ export function HistoryView({ token }: { token: string }) {
               </div>
               {bucket.holds > 0 ? (
                 <div className="bar-row">
-                  <span>{t.heistTitle}</span>
+                  <span>{t.holdTitle}</span>
                   <div className="bar hold" style={{ width: `${Math.max(8, (bucket.holds / peak) * 100)}%` }} />
                 </div>
               ) : null}
@@ -53,7 +53,7 @@ export function HistoryView({ token }: { token: string }) {
           ))}
         </ul>
         <HelpLinks language={language} />
-        <Link className="btn ink" href={`/crew/${token}`}>{t.backAlarm}</Link>
+        <Link className="btn ink" href={`/trusted/${token}`}>{t.backAlarm}</Link>
       </section>
       <div className="langs" style={{ marginTop: "0.8rem" }}>
         <button type="button" className="choice" onClick={() => setLanguage("en")}>{t.english}</button>

@@ -1,14 +1,14 @@
-# Deploy to api.stoptheheist.us
+# Deploy on a VM with docker-compose
 
-The apex `stoptheheist.us` stays on GitHub Pages (the crew film). The live app
-and the Twilio call-in webhook run on the subdomain `api.stoptheheist.us`,
-served by the docker-compose stack (api + web + Caddy with automatic HTTPS).
+The live app and the Twilio call-in webhook run on one host, served by the
+docker-compose stack (api + web + Caddy with automatic HTTPS). Render hosting
+for the hackathon is set up separately; this file covers the self-hosted path.
 
-## 1. DNS (Porkbun)
+## 1. DNS
 
-Add one record. Leave the apex A records alone.
+Point a name at the host.
 
-    Type: A    Host: api    Answer: <VM public IP>    TTL: 600
+    Type: A    Host: <your host name>    Answer: <VM public IP>    TTL: 600
 
 ## 2. VM (any provider with a public IP; Vultr per the original plan)
 
@@ -22,8 +22,8 @@ Add one record. Leave the apex A records alone.
     cd Lookout
     cp .env.example .env
     # edit .env, set at minimum:
-    #   DOMAIN=api.stoptheheist.us
-    #   PUBLIC_BASE_URL=https://api.stoptheheist.us
+    #   DOMAIN=<your host name>
+    #   PUBLIC_BASE_URL=https://<your host name>
     #   TWILIO_ACCOUNT_SID=...        (fresh key)
     #   TWILIO_AUTH_TOKEN=...         (fresh key)
     #   TWILIO_FROM_NUMBER=+14327772545
@@ -39,7 +39,7 @@ resolves to this host. Give DNS a few minutes to propagate first.
 Number +14327772545 (PhoneNumber SID PN2f18a4c6e94d6004b710fc1f7f690715).
 Set the voice webhook to the subdomain, HTTP POST:
 
-    https://api.stoptheheist.us/voice/incoming
+    https://<your host name>/voice/incoming
 
 This can be done from the Twilio Console (Phone Numbers -> the number -> Voice)
 or with one authenticated API POST updating VoiceUrl / VoiceMethod.

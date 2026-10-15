@@ -87,12 +87,12 @@ def reader_line(source: str, language: str, heat: int) -> dict:
 def ledger_line(signals: dict[str, bool], language: str) -> dict:
     heat = sum(POINTS[key] for key in ("new_recipient", "unusual_amount", "irreversible_method") if signals.get(key))
     if language == "es":
-        name, sentence = "El Libro", "El Libro miró a quién, cuánto y cómo se envía."
+        name, sentence = "La billetera", "La billetera revisó a quién, cuánto y cómo se envía."
     else:
-        name, sentence = "The Ledger", "The Ledger checked who, how much, and how it sends."
+        name, sentence = "Wallet", "The wallet checked who, how much, and how it sends."
     return {"id": "ledger", "name": name, "sentence": sentence, "signal": "wallet", "heat": heat}
 
 
 def reason_line(language: str, sentence: str, heat: int) -> dict:
-    name = "La Razón" if language == "es" else "The Reason"
+    name = "La razón" if language == "es" else "Reason"
     return {"id": "reason", "name": name, "sentence": sentence, "signal": "stated_reason", "heat": heat}

@@ -53,7 +53,7 @@ export function CrewView({ token }: { token: string }) {
       <div className="step-view" key={state?.pending?.approval_id || "idle"}>
       {state?.pending ? (
         <section className="stack">
-          <h1>{t.heistTitle}</h1>
+          <h1>{t.holdTitle}</h1>
           <StageTracker stage={state.pending.stage} language={language} />
           <article className="paper stack">
             <p className="kicker">{t.fact}</p>
@@ -79,7 +79,7 @@ export function CrewView({ token }: { token: string }) {
       )}
       </div>
       {error ? <p className="error">{error}</p> : null}
-      <Link className="btn ghost" href={`/crew/${token}/history`}>{t.history}</Link>
+      <Link className="btn ghost" href={`/trusted/${token}/history`}>{t.history}</Link>
       <HelpLinks language={language} />
     </Frame>
   );

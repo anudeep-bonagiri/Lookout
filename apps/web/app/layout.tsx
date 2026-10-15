@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Atkinson_Hyperlegible, Fraunces } from "next/font/google";
+import { Atkinson_Hyperlegible, Manrope } from "next/font/google";
 import "./globals.css";
 
 const sans = Atkinson_Hyperlegible({
@@ -8,15 +8,15 @@ const sans = Atkinson_Hyperlegible({
   variable: "--font-sans",
 });
 
-const display = Fraunces({
+const display = Manrope({
   subsets: ["latin"],
-  weight: ["600", "700"],
+  weight: ["600", "700", "800"],
   variable: "--font-display",
 });
 
 export const metadata: Metadata = {
   title: "Lookout",
-  description: "Pause a scam payment and ask someone you trust before the money moves.",
+  description: "Holds a PayPal payment while it checks for scam pressure and asks someone you trust before money moves.",
   applicationName: "Lookout",
   appleWebApp: {
     capable: true,
@@ -29,7 +29,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#1c140e",
+  themeColor: "#001c64",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

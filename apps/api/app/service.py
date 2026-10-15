@@ -284,7 +284,7 @@ def _session_payload(user: User, contact: Contact) -> dict:
         "language": user.language,
         "contact_name": contact.name,
         "contact_phone": contact.phone,
-        "crew_path": f"/crew/{contact.token}",
+        "crew_path": f"/trusted/{contact.token}",
         "token": contact.token,
         "home_id": user.home_id,
     }
@@ -342,7 +342,7 @@ async def check_payment(
         number_override["flagged_number"] = line
         looked.append({
             "id": "lineup",
-            "name": "La Ficha" if user.language == "es" else "The Line-up",
+            "name": "Revisión del número" if user.language == "es" else "Number check",
             "sentence": line,
             "signal": "flagged_number",
             "heat": POINTS["flagged_number"],
@@ -1068,7 +1068,7 @@ async def _contact_by_token(session: AsyncSession, token: str) -> Contact:
         await session.execute(select(Contact).where(Contact.token == token))
     ).scalar_one_or_none()
     if contact is None:
-        raise LookupError("That crew link was not found.")
+        raise LookupError("That trusted contact link was not found.")
     return contact
 
 
@@ -1077,7 +1077,7 @@ async def _user_for_contact(session: AsyncSession, contact_id: str) -> User:
         await session.execute(select(User).where(User.trusted_contact_id == contact_id))
     ).scalars().first()
     if user is None:
-        raise LookupError("That crew link was not found.")
+        raise LookupError("That trusted contact link was not found.")
     return user
 
 

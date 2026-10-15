@@ -110,7 +110,7 @@ export function getAttempt(attemptId: string, userId: string) {
 }
 
 export function getCrew(token: string) {
-  return send<CrewState>(`/api/crew/${token}`);
+  return send<CrewState>(`/api/trusted/${token}`);
 }
 
 export function decide(approvalId: string, token: string, decision: "approved" | "denied") {

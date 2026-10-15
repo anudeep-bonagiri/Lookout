@@ -25,7 +25,7 @@ import {
 import { text } from "@/lib/copy";
 import type { CheckResult, Lang, Method, Session, WatcherDesk, WhyRank } from "@/lib/types";
 
-type Step = "boot" | "setup" | "link" | "send" | "checking" | "heist" | "verify" | "waiting" | "result" | "message";
+type Step = "boot" | "setup" | "link" | "send" | "checking" | "hold" | "verify" | "waiting" | "result" | "message";
 
 const METHODS: Method[] = ["ach", "instant", "wire", "gift_card", "crypto"];
 
@@ -116,7 +116,7 @@ export function GrandmaFlow() {
   }, [step, reasonLanguage]);
 
   useEffect(() => {
-    if (step !== "heist" || !session || !attempt) return;
+    if (step !== "hold" || !session || !attempt) return;
     playWarning(session.language).catch(() => undefined);
   }, [step, session, attempt]);
 
@@ -249,7 +249,7 @@ export function GrandmaFlow() {
       if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
       setAttempt(result);
       setQuestion(1);
-      setStep(result.outcome === "hold" ? "heist" : result.outcome === "verify" ? "verify" : "result");
+      setStep(result.outcome === "hold" ? "hold" : result.outcome === "verify" ? "verify" : "result");
     } catch {
       setError(t.error);
       setStep("send");
@@ -266,7 +266,7 @@ export function GrandmaFlow() {
     try {
       const next = await friction(attempt.attempt_id, session.user_id, which === 1, which === 2);
       setAttempt(next);
-      setStep(next.outcome === "hold" ? "heist" : "verify");
+      setStep(next.outcome === "hold" ? "hold" : "verify");
       setQuestion(which === 1 && next.outcome !== "hold" ? 2 : "done");
     } catch {
       setError(t.error);
@@ -339,7 +339,7 @@ export function GrandmaFlow() {
     }
   }
 
-  const tone = step === "heist" || step === "waiting" ? "alarm" : step === "result" && (attempt?.status === "allowed" || attempt?.status === "approved") ? "clear" : "vault";
+  const tone = step === "hold" || step === "waiting" ? "alarm" : step === "result" && (attempt?.status === "allowed" || attempt?.status === "approved") ? "clear" : "vault";
 
   const player =
     step === "setup" || step === "send" || step === "result"
@@ -352,7 +352,7 @@ export function GrandmaFlow() {
 
   const announce =
     step === "checking" ? t.checking
-      : step === "heist" ? t.heistTitle
+      : step === "hold" ? t.holdTitle
         : step === "verify" ? t.verifyTitle
           : step === "waiting" ? t.waitingTitle
             : step === "send" ? t.sendTitle
@@ -459,9 +459,9 @@ export function GrandmaFlow() {
         </section>
       ) : null}
 
-      {step === "heist" && attempt && session ? (
+      {step === "hold" && attempt && session ? (
         <section className="stack">
-          <h1>{t.heistTitle}</h1>
+          <h1>{t.holdTitle}</h1>
           <StageTracker stage={attempt.stage} language={session.language} />
           <div className="paper">
             <ul className="reasons">{attempt.reasons.slice(0, 3).map((reason) => <li key={reason}>{reason}</li>)}</ul>

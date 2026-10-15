@@ -1,5 +1,5 @@
-import { ScrollIntro } from "@/components/ScrollIntro";
+import { Landing } from "@/components/Landing";
 
 export default function HomePage() {
-  return <ScrollIntro />;
+  return <Landing />;
 }
