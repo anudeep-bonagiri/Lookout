@@ -134,6 +134,39 @@ class CallTranscript(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class PayPalOrder(Base):
+    """One PayPal AUTHORIZE order and what Lookout knew before it was approved.
+
+    The order is created first, the buyer approves it on PayPal's page, then
+    Lookout authorizes it (money held), scores the attempt against what was
+    shown before the payment, and captures or voids. The attestation columns
+    (expected_amount, page_hash, source_url) are the context the agent or the
+    person saw; drift between them and the authorization forces a hold."""
+
+    __tablename__ = "paypal_orders"
+
+    order_id: Mapped[str] = mapped_column(String(40), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(36), index=True)
+    attempt_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    recipient: Mapped[str] = mapped_column(String(80), default="")
+    payee_email: Mapped[str] = mapped_column(String(120), default="")
+    prompt_text: Mapped[str] = mapped_column(Text, default="")
+    expected_amount: Mapped[float] = mapped_column(Float)
+    currency: Mapped[str] = mapped_column(String(3), default="USD")
+    page_hash: Mapped[str] = mapped_column(String(64), default="")
+    source_url: Mapped[str] = mapped_column(String(500), default="")
+    authorization_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    capture_id: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    authorized_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+    authorized_payee: Mapped[str] = mapped_column(String(120), default="")
+    vault_id: Mapped[str] = mapped_column(String(80), default="")
+    drift: Mapped[str] = mapped_column(Text, default="[]")
+    status: Mapped[str] = mapped_column(String(20), default="created")
+    error: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class FlaggedNumber(Base):
     """A phone number reported as a scam. Shared across every wallet, carrier,
     and credit union that reports into the same list."""

@@ -24,6 +24,24 @@ Open `/` for the door. Open `/wallet` for Rosa. Open `/crew/maya-demo` for Maya.
 - `apps/api/app/service.py` — from the check to the Lookout's decision.
 - `apps/api/app/redact.py` — codes are removed before anyone else sees them.
 
+## PayPal
+
+Lookout sits between PayPal's approve step and the capture. Money is held, never moved, until the check is done.
+
+- `apps/api/app/paypal.py` — the PayPal REST client: AUTHORIZE orders, authorize, capture, void, and webhook signature checks. Credentials stay in this process.
+- `apps/api/app/checkout.py` — the flow. `POST /paypal/orders` writes down what was shown before paying (amount, payee, page hash, the message) and returns PayPal's approve link. After approval, `POST /paypal/orders/{id}/authorize` holds the money, compares PayPal's facts with what was shown, and runs the scam check. A mismatch is a hold, no matter the score.
+- Allow captures right away. Verify waits for the person. Hold waits for the trusted contact, who sees PayPal's amount and payee, not the agent's words. Deny, cancel, or timeout voids.
+- `POST /paypal/webhooks` only accepts events signed with a certificate served by PayPal.
+- `apps/api/scripts/paypal_smoke.py` is the sandbox check for a new app: create, approve, authorize, print the vault id, void.
+
+Set `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`, and `PAYPAL_WEBHOOK_ID` in `.env`. With none of them, the PayPal routes answer 503 and the rest of the wallet works as before.
+
+## Keys
+
+- `LOOKOUT_API_KEY` — when set, every API route except health and the signed webhooks needs it in `x-lookout-key`. The Next proxy adds it on the server, so the browser never holds it.
+- `ELEVENLABS_WEBHOOK_SECRET` — when set, post-call transcripts must carry a valid `ElevenLabs-Signature`.
+- `ALLOWED_ORIGINS` — browser origins allowed to call the API directly. Normally empty; the proxy is same-origin.
+
 ## Around the app
 
 - `index.html` and `heist/` — the public crew film.

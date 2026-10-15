@@ -27,6 +27,22 @@ class Settings(BaseSettings):
     public_base_url: str = ""
     hold_timeout_seconds: int = 600
 
+    # PayPal sandbox app (developer.paypal.com). Lookout is the merchant-side
+    # integrator: it creates AUTHORIZE orders, holds them while the scam check
+    # and the trusted contact run, then captures or voids.
+    paypal_client_id: str = ""
+    paypal_client_secret: str = ""
+    paypal_env: str = "sandbox"
+    paypal_webhook_id: str = ""
+    paypal_currency: str = "USD"
+
+    # Shared secret the Next proxy sends on every API call. Empty = open (local demo).
+    lookout_api_key: str = ""
+    # ElevenLabs post-call webhook HMAC secret. Empty = unsigned transcripts accepted (local demo).
+    elevenlabs_webhook_secret: str = ""
+    # Comma-separated browser origins allowed to call the API directly. Empty = none.
+    allowed_origins: str = ""
+
 
 @lru_cache
 def get_settings() -> Settings:

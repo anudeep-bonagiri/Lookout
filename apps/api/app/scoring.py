@@ -82,6 +82,22 @@ def score_signals(
     )
 
 
+HOLD_AT = 70
+
+
+def force_hold(result: ScoreResult) -> ScoreResult:
+    """Deterministic rule: when the facts PayPal authorized differ from what was
+    shown before the payment, nothing is captured until a person decides.
+    The model never gets a vote on this one."""
+    return ScoreResult(
+        score=max(result.score, HOLD_AT),
+        outcome="hold",
+        stage=4,
+        reasons=result.reasons,
+        signals=result.signals,
+    )
+
+
 def user_may_continue(outcome: str) -> bool:
     return outcome == "verify"
 

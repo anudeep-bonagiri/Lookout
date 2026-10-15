@@ -14,6 +14,7 @@ services:
     build: ./apps/web
     environment:
       API_URL: http://api:8000
+      LOOKOUT_API_KEY: ${LOOKOUT_API_KEY:-}
     depends_on:
       - api
     expose:

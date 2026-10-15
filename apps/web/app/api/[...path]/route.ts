@@ -9,6 +9,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   target.search = request.nextUrl.search;
   const headers = new Headers(request.headers);
   headers.delete("host");
+  // The shared API key never leaves the server: strip whatever the browser sent and add ours.
+  headers.delete("x-lookout-key");
+  const key = process.env["LOOKOUT_API_KEY"];
+  if (key) headers.set("x-lookout-key", key);
   const method = request.method;
   const hasBody = method !== "GET" && method !== "HEAD";
   const response = await fetch(target, {

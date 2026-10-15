@@ -10,6 +10,7 @@ from app.db import (
     Contact,
     FlaggedNumber,
     PaymentAttempt,
+    PayPalOrder,
     ReasonBelief,
     ReasonObservation,
     RiskCheck,
@@ -21,11 +22,12 @@ from app.db import (
     loads,
     utcnow,
 )
+import app.paypal as paypal
 import app.reputation as reputation
 from app.labels import MESSAGE_SIGNALS, decode_image, label_message, normalize_recipient
 from app.pressure import pressure_status
 from app.reasons import ACTION, METHOD_LABELS, POINTS, UNKNOWN, warning_for
-from app.scoring import score_signals, user_may_continue, wallet_signals
+from app.scoring import force_hold, score_signals, user_may_continue, wallet_signals
 from app.watchers import DESKS, apply_watchers, ledger_line, load_desks, reader_line, reason_line
 from app.why import apply as apply_why
 from app.why import known as known_why
@@ -311,6 +313,7 @@ async def check_payment(
     on_call: bool,
     pressure_elevated: bool,
     why: str | None = None,
+    extra_signals: dict[str, bool] | None = None,
 ) -> dict:
     user = await _user(session, user_id)
     from app.redact import redact
@@ -325,6 +328,9 @@ async def check_payment(
         signals["on_call"] = True
     if pressure_elevated and await _pressure_counts(session, user.id):
         signals["pressure_elevated"] = True
+    for key, value in (extra_signals or {}).items():
+        if key in POINTS and value:
+            signals[key] = True
     reader_heat = sum(POINTS[key] for key in MESSAGE_SIGNALS if signals.get(key))
     signals, watcher_hits, watcher_overrides = await _watch(session, text or "", signals, user.language)
     looked = [ledger_line(signals, user.language), reader_line(labels.source, user.language, reader_heat), *watcher_hits]
@@ -356,6 +362,8 @@ async def check_payment(
         looked.append(reason_line(user.language, why_sentence, why_weight))
     weights = {"stated_reason": why_weight} if why_weight else None
     result = score_signals(signals, user.language, overrides, weights)
+    if signals.get("context_drift"):
+        result = force_hold(result)
     status = {"allow": "allowed", "verify": "verifying", "hold": "held"}[result.outcome]
     attempt = PaymentAttempt(
         id=str(uuid.uuid4()),
@@ -513,6 +521,7 @@ async def continue_payment(session: AsyncSession, attempt_id: str, user_id: str)
     attempt.status = "allowed"
     await _observe(session, attempt.id, dispute=False)
     await session.commit()
+    await settle(session, attempt, release=True)
     reasons, source = await _latest_reasons(session, attempt.id)
     signals, _source = await _latest_signals(session, attempt.id)
     return await _body(session, attempt, reasons, source, None, user.language, signals)
@@ -528,6 +537,7 @@ async def cancel_payment(session: AsyncSession, attempt_id: str, user_id: str) -
         approval.status = "cancelled"
         approval.decided_at = utcnow()
     await session.commit()
+    await settle(session, attempt, release=False)
     reasons, source = await _latest_reasons(session, attempt.id)
     signals, _source = await _latest_signals(session, attempt.id)
     return await _body(session, attempt, reasons, source, approval, user.language, signals)
@@ -585,9 +595,13 @@ async def decide(session: AsyncSession, approval_id: str, token: str, decision: 
     attempt.status = decision
     await _observe(session, attempt.id, dispute=decision == "denied")
     await session.commit()
+    settled = await settle(session, attempt, release=decision == "approved")
     user = await _user(session, attempt.user_id)
     reasons, _source = await _latest_reasons(session, attempt.id)
-    return _pending_body(user, attempt, approval, reasons)
+    body = _pending_body(user, attempt, approval, reasons)
+    if settled is not None:
+        body["paypal"] = settled
+    return body
 
 
 async def history(session: AsyncSession, token: str) -> dict:
@@ -817,6 +831,9 @@ async def _body(
     raw = await _raw_signals(session, attempt.id)
     looked = raw.get("_looked")
     body["looked"] = looked if isinstance(looked, list) else []
+    if attempt.method == "paypal":
+        row = await paypal_order_for(session, attempt.id)
+        body["paypal"] = None if row is None else paypal_view(row)
     return body
 
 
@@ -889,6 +906,62 @@ async def _expire(session: AsyncSession, approval: ApprovalRequest | None, attem
     if attempt is not None and attempt.status in {"held", "verifying"}:
         attempt.status = "expired"
     await session.commit()
+    if attempt is not None:
+        await settle(session, attempt, release=False)
+
+
+async def paypal_order_for(session: AsyncSession, attempt_id: str) -> PayPalOrder | None:
+    return (
+        await session.execute(select(PayPalOrder).where(PayPalOrder.attempt_id == attempt_id))
+    ).scalars().first()
+
+
+def paypal_view(row: PayPalOrder) -> dict:
+    drift = loads(row.drift, [])
+    return {
+        "order_id": row.order_id,
+        "status": row.status,
+        "authorization_id": row.authorization_id,
+        "capture_id": row.capture_id,
+        "expected_amount": row.expected_amount,
+        "authorized_amount": row.authorized_amount,
+        "currency": row.currency,
+        "payee": row.authorized_payee or row.payee_email,
+        "vault_id": row.vault_id,
+        "page_hash": row.page_hash,
+        "source_url": row.source_url,
+        "drift": drift if isinstance(drift, list) else [],
+        "error": row.error,
+    }
+
+
+async def settle(session: AsyncSession, attempt: PaymentAttempt, release: bool) -> dict | None:
+    """Capture or void the PayPal authorization behind an attempt, once.
+
+    Called after the wallet decides. A capture only happens from here, after
+    the scorer and (when held) the trusted contact said yes. Any PayPal error
+    leaves the money where it is and is written on the row for the UI."""
+    row = await paypal_order_for(session, attempt.id)
+    if row is None:
+        return None
+    if row.status != "authorized" or not row.authorization_id:
+        return paypal_view(row)
+    try:
+        client = paypal.get_client()
+        if release:
+            capture = await client.capture(row.authorization_id)
+            row.capture_id = capture["id"] or None
+            row.status = "captured"
+        else:
+            await client.void(row.authorization_id)
+            row.status = "voided"
+        row.error = ""
+    except (paypal.PayPalUnavailable, paypal.PayPalError) as exc:
+        row.status = "capture_failed" if release else "void_failed"
+        row.error = str(exc)
+    row.updated_at = utcnow()
+    await session.commit()
+    return paypal_view(row)
 
 
 async def _latest_signals(session: AsyncSession, attempt_id: str) -> tuple[dict, str]:
@@ -1034,5 +1107,6 @@ async def health(session: AsyncSession) -> dict:
         "gemini": bool(settings.gemini_api_key),
         "elevenlabs": bool(settings.elevenlabs_api_key),
         "presage": bool(settings.presage_api_key),
+        "paypal": paypal.configured(),
         "tiger": await _tiger_ready(session),
     }
